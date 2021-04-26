@@ -6,16 +6,18 @@ import librosa
 from math import floor, ceil
 import numpy as np
 
-all_phonemes = [
-    'b', 'd', 'g', 'p', 't', 'k', 'dx', 'q', 'jh', 'ch', 's', 'sh', 'z',
-    'zh', 'f', 'th', 'v', 'dh', 'm', 'n', 'ng', 'em', 'en', 'eng', 'nx',
-    'l', 'r', 'w', 'y', 'hh', 'hv', 'el', 'iy', 'ih', 'eh', 'ey', 'ae',
-    'aa', 'aw', 'ay', 'ah', 'ao', 'oy', 'ow', 'uh', 'uw', 'ux', 'er',
-    'ax', 'ix', 'axr', 'ax-h', 'pau', 'epi', 'h#', 'bcl', 'dcl' ,'gcl',
-    'pcl', 'tck', 'kcl', 'dcl', 'tcl'
-]
+
 
 class Phoneme():
+    all_phonemes = [
+        'b', 'd', 'g', 'p', 't', 'k', 'dx', 'q', 'jh', 'ch', 's', 'sh', 'z',
+        'zh', 'f', 'th', 'v', 'dh', 'm', 'n', 'ng', 'em', 'en', 'eng', 'nx',
+        'l', 'r', 'w', 'y', 'hh', 'hv', 'el', 'iy', 'ih', 'eh', 'ey', 'ae',
+        'aa', 'aw', 'ay', 'ah', 'ao', 'oy', 'ow', 'uh', 'uw', 'ux', 'er',
+        'ax', 'ix', 'axr', 'ax-h', 'pau', 'epi', 'h#', 'bcl', 'dcl' ,'gcl',
+        'pcl', 'tck', 'kcl', 'dcl', 'tcl'
+    ]
+
     def __init__(self, start, stop, symbol):
         self.start = start
         self.stop = stop
@@ -33,11 +35,15 @@ class Phoneme():
 
     @classmethod
     def symbol_to_index(cls, s):
-        return all_phonemes.index(s)
+        return cls.all_phonemes.index(s)
 
     @classmethod
     def index_to_symbol(cls, i):
-        return all_phonemes[i]
+        return cls.all_phonemes[i]
+    
+    @classmethod
+    def phoneme_count(cls):
+        return len(cls.all_phonemes)
 
 
 def get_phonemes_from_file(path):
@@ -55,7 +61,9 @@ def get_labels_from_file(path, samples_per_frame, n_samples):
     phon_idx = 0
     sample_idx = 0
 
-    while sample_idx < n_samples:
+    while True:
+        if sample_idx + samples_per_frame >= n_samples:
+            break
         phon = phonemes[phon_idx]
         if phon.stop - sample_idx < 0.5 * samples_per_frame and \
            phon_idx < len(phonemes) - 1:
@@ -105,7 +113,7 @@ class TimitDataset(torch.utils.data.Dataset):
         samples_per_frame = floor(sample_rate / 1000 * self.frame_length)
         n_samples = len(waveform)
         n_frames = ceil(n_samples / samples_per_frame)
-        frames = np.array_split(waveform, n_frames)
+        frames = waveform.unfold(0, samples_per_frame, samples_per_frame).reshape(-1, samples_per_frame, 1)
 
         labels = get_labels_from_file(pn_path, samples_per_frame, n_samples)
         return frames, labels
