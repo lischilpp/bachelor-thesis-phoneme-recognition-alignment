@@ -1,15 +1,20 @@
 import csv
 from pathlib import Path
+import torch
+import torchaudio
+import librosa
+from math import floor, ceil
+import numpy as np
 
 
 class Phoneme():
-    def __init__(self, start, end, symbol):
+    def __init__(self, start, stop, symbol):
         self.start = start
-        self.end = end
+        self.stop = stop
         self.symbol = symbol
 
     def __str__(self):
-        return f"{self.start}-{self.end}: {self.symbol}"
+        return f"{self.start}-{self.stop}: {self.symbol}"
 
     def __repr__(self):
         return self.__str__()
@@ -20,8 +25,31 @@ def get_phonemes_from_file(path):
     with open(path) as pn_file:
         reader = csv.reader(pn_file, delimiter=' ')
         phonemes = [Phoneme(int(row[0]), int(row[1]), row[2])
-                    for row in reader][1:-1]
+                    for row in reader]
     return phonemes
+
+def get_labels_from_file(path, samples_per_frame, n_samples):
+    phonemes = get_phonemes_from_file(path)
+    print(phonemes)
+    labels = []
+    phon_idx = 0
+    sample_idx = 0
+
+    while sample_idx < n_samples:
+        phon = phonemes[phon_idx]
+        if phon.stop - sample_idx > 0.5 * samples_per_frame or \
+           phon_idx == len(phonemes) - 1:
+            labels.append(phon.symbol)
+        else:
+            phon_idx += 1
+            phon = phonemes[phon_idx]
+            labels.append(phon.symbol)
+
+        sample_idx += samples_per_frame
+
+    return labels
+    
+
 
 def get_recording_paths(root, train):
     recording_paths = []
@@ -36,3 +64,33 @@ def get_recording_paths(root, train):
                 path_no_ext = path[0:path.index('.')]
                 recording_paths.append(path_no_ext)
     return recording_paths
+
+
+class TimitDataset(torch.utils.data.Dataset):
+    
+    def __init__(self, root, train, frame_length):
+        super(TimitDataset, self).__init__()
+        self.root = root
+        self.data = root / 'data'
+        self.train = train
+        self.recording_paths = get_recording_paths(root, train)
+        self.n_recordings = len(self.recording_paths)
+        self.frame_length = frame_length
+
+    def __getitem__(self, index):
+        recording_path = self.recording_paths[index]
+        wav_path = self.data / f'{recording_path}.WAV'
+        pn_path = self.data / f'{recording_path}.PHN'
+
+        waveform, sample_rate = torchaudio.load(wav_path)
+        waveform = waveform[0]
+        samples_per_frame = floor(sample_rate / 1000 * self.frame_length)
+        n_samples = len(waveform)
+        n_frames = ceil(n_samples / samples_per_frame)
+        frames = np.array_split(waveform, n_frames)
+
+        labels = get_labels_from_file(pn_path, samples_per_frame, n_samples)
+        return frames, labels
+
+    def __len__(self):
+        return self.n_recordings
