@@ -6,18 +6,38 @@ import librosa
 from math import floor, ceil
 import numpy as np
 
+all_phonemes = [
+    'b', 'd', 'g', 'p', 't', 'k', 'dx', 'q', 'jh', 'ch', 's', 'sh', 'z',
+    'zh', 'f', 'th', 'v', 'dh', 'm', 'n', 'ng', 'em', 'en', 'eng', 'nx',
+    'l', 'r', 'w', 'y', 'hh', 'hv', 'el', 'iy', 'ih', 'eh', 'ey', 'ae',
+    'aa', 'aw', 'ay', 'ah', 'ao', 'oy', 'ow', 'uh', 'uw', 'ux', 'er',
+    'ax', 'ix', 'axr', 'ax-h', 'pau', 'epi', 'h#', 'bcl', 'dcl' ,'gcl',
+    'pcl', 'tck', 'kcl', 'dcl', 'tcl'
+]
 
 class Phoneme():
     def __init__(self, start, stop, symbol):
         self.start = start
         self.stop = stop
-        self.symbol = symbol
+        self.symbol = self.strip_digits(symbol)
+    
+    def strip_digits(self, s):
+        length = len(s)
+        return s[0:length-1] if s[length - 1].isdigit() else s
 
     def __str__(self):
         return f"{self.start}-{self.stop}: {self.symbol}"
 
     def __repr__(self):
         return self.__str__()
+
+    @classmethod
+    def symbol_to_index(cls, s):
+        return all_phonemes.index(s)
+
+    @classmethod
+    def index_to_symbol(cls, i):
+        return all_phonemes[i]
 
 
 def get_phonemes_from_file(path):
@@ -37,14 +57,12 @@ def get_labels_from_file(path, samples_per_frame, n_samples):
 
     while sample_idx < n_samples:
         phon = phonemes[phon_idx]
-        if phon.stop - sample_idx > 0.5 * samples_per_frame or \
-           phon_idx == len(phonemes) - 1:
-            labels.append(phon.symbol)
-        else:
+        if phon.stop - sample_idx < 0.5 * samples_per_frame and \
+           phon_idx < len(phonemes) - 1:
             phon_idx += 1
             phon = phonemes[phon_idx]
-            labels.append(phon.symbol)
 
+        labels.append(Phoneme.symbol_to_index(phon.symbol))
         sample_idx += samples_per_frame
 
     return labels
