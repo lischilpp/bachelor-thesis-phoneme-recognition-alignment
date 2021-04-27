@@ -1,12 +1,13 @@
 import csv
 from pathlib import Path
 import torch
-import torchaudio
 import librosa
 from math import floor, ceil
 import numpy as np
-
-
+import warnings
+# disable C++ extension warning
+warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
+import torchaudio
 
 class Phoneme():
     all_phonemes = [
@@ -56,13 +57,12 @@ def get_phonemes_from_file(path):
 
 def get_labels_from_file(path, samples_per_frame, n_samples):
     phonemes = get_phonemes_from_file(path)
-    print(phonemes)
     labels = []
     phon_idx = 0
     sample_idx = 0
 
     while True:
-        if sample_idx + samples_per_frame >= n_samples:
+        if sample_idx + samples_per_frame > n_samples:
             break
         phon = phonemes[phon_idx]
         if phon.stop - sample_idx < 0.5 * samples_per_frame and \
@@ -73,7 +73,7 @@ def get_labels_from_file(path, samples_per_frame, n_samples):
         labels.append(Phoneme.symbol_to_index(phon.symbol))
         sample_idx += samples_per_frame
 
-    return labels
+    return torch.tensor(labels)
     
 
 
@@ -102,20 +102,34 @@ class TimitDataset(torch.utils.data.Dataset):
         self.recording_paths = get_recording_paths(root, train)
         self.n_recordings = len(self.recording_paths)
         self.frame_length = frame_length
+        first_recording = self.data / f'{self.recording_paths[0]}.WAV'
+        _, self.sampling_rate = torchaudio.load(first_recording)
+        self.samples_per_frame = floor(self.sampling_rate / 1000 * self.frame_length)
+
+
+    def resample(self, waveform, sampling_rate):
+        if sampling_rate != self.sampling_rate:
+            waveform = waveform.detach().cpu().numpy()
+            waveform = librosa.resample(waveform, sampling_rate, self.sampling_rate)
+            waveform = torch.tensor(waveform)
+        return waveform
 
     def __getitem__(self, index):
         recording_path = self.recording_paths[index]
         wav_path = self.data / f'{recording_path}.WAV'
         pn_path = self.data / f'{recording_path}.PHN'
 
-        waveform, sample_rate = torchaudio.load(wav_path)
-        waveform = waveform[0]
-        samples_per_frame = floor(sample_rate / 1000 * self.frame_length)
+        waveform, sampling_rate = torchaudio.load(wav_path)
+        waveform = self.resample(waveform[0], self.sampling_rate)
+        
         n_samples = len(waveform)
-        n_frames = ceil(n_samples / samples_per_frame)
-        frames = waveform.unfold(0, samples_per_frame, samples_per_frame).reshape(-1, samples_per_frame, 1)
+        n_frames = ceil(n_samples / self.samples_per_frame)
+        frames = waveform.unfold(0, self.samples_per_frame, self.samples_per_frame)
+        # specgram = torchaudio.transforms.MelSpectrogram()(frames[0])
+        # print(specgram)
+        # exit()
 
-        labels = get_labels_from_file(pn_path, samples_per_frame, n_samples)
+        labels = get_labels_from_file(pn_path, self.samples_per_frame, n_samples)
         return frames, labels
 
     def __len__(self):
