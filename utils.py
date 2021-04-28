@@ -11,11 +11,11 @@ warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 import torchaudio
 import torchaudio.transforms as T
 
-all_characters = list(string.ascii_lowercase) + \
+sentence_characters = list(string.ascii_lowercase) + \
                  [',', ';', '.', '!', '?', ':', '-', '\'', '\"', ' ']
 
 class Phoneme():
-    all_phonemes = [
+    phoneme_list = [
         'b', 'd', 'g', 'p', 't', 'k', 'dx', 'q', 'jh', 'ch', 's', 'sh', 'z',
         'zh', 'f', 'th', 'v', 'dh', 'm', 'n', 'ng', 'em', 'en', 'eng', 'nx',
         'l', 'r', 'w', 'y', 'hh', 'hv', 'el', 'iy', 'ih', 'eh', 'ey', 'ae',
@@ -41,15 +41,15 @@ class Phoneme():
 
     @classmethod
     def symbol_to_index(cls, s):
-        return cls.all_phonemes.index(s)
+        return cls.phoneme_list.index(s)
 
     @classmethod
     def index_to_symbol(cls, i):
-        return cls.all_phonemes[i]
+        return cls.phoneme_list[i]
     
     @classmethod
     def phoneme_count(cls):
-        return len(cls.all_phonemes)
+        return len(cls.phoneme_list)
 
 
 def get_phonemes_from_file(path):
@@ -92,7 +92,7 @@ def one_hot_encode(e, l):
     return [1 if e == x else 0 for x in l]
 
 def encode_sentence(s):
-    s = [one_hot_encode(c, all_characters) for c in s.lower()]
+    s = [one_hot_encode(c, sentence_characters) for c in s.lower()]
     s = torch.FloatTensor(s).flatten()
     return s
 
@@ -171,7 +171,8 @@ class TimitDataset(torch.utils.data.Dataset):
         # print(specgram.shape)
         # exit()
 
-        sentence = get_encoded_sentence_from_file(sentence_path).view(1, -1)
+
+        sentence = get_encoded_sentence_from_file(sentence_path)
         labels = get_labels_from_file(pn_path, self.samples_per_frame, n_samples)
         
         return sentence, frames, labels

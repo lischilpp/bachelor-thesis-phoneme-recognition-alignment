@@ -1,4 +1,4 @@
-from utils import TimitDataset, Phoneme
+from utils import TimitDataset, Phoneme, sentence_characters
 import torch
 import torch.nn as nn
 import torchaudio
@@ -10,14 +10,14 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 train_dataset = TimitDataset(root=timit_path, train=True, frame_length=50)
 
-
 num_classes = Phoneme.phoneme_count()
 num_epochs = 15
 batch_size = 1
-learning_rate = 0.001
+learning_rate = 0.0001
 
 input_size = train_dataset.samples_per_frame
-hidden_size = 128
+max_sentence_length = 100
+hidden_size = max_sentence_length * len(sentence_characters)
 num_layers = 2
 
 
@@ -41,8 +41,6 @@ class RNN(nn.Module):
         output = self.softmax(output)
         return output, hidden
     
-    def init_hidden(self):
-        return torch.zeros(1, self.hidden_size).to(device)
         
 
 model = RNN(input_size, hidden_size, num_classes).to(device)
@@ -57,7 +55,13 @@ for epoch in range(num_epochs):
         frames = frames.to(device)
         labels = labels.flatten().to(device)
 
-        hidden = model.init_hidden()
+        if len(sentence) > max_sentence_length:
+            print(f'sentence too long, length={len(sentence)}')
+            continue
+        
+        sentence = sentence.view(1, -1)
+        hidden = torch.zeros(1, hidden_size).to(device)
+        hidden[:, :sentence.size(1)] = sentence
 
         outputs = torch.zeros(frames.size(1), num_classes).to(device)
         for j in range(frames.size(1)):
