@@ -1,5 +1,5 @@
 from phonemes import Phoneme, get_phonemes_from_file
-from utils import encode_sentence
+from utils import encode_sentence, sentence_characters
 import csv
 import librosa
 from math import floor, ceil
@@ -22,6 +22,8 @@ class TimitDataset(torch.utils.data.Dataset):
         self.recording_paths = self.get_recording_paths(root, train)
         self.n_recordings = len(self.recording_paths)
         self.frame_length = frame_length
+        self.max_sentence_length = 100
+        self.sentence_padded_size = self.max_sentence_length * len(sentence_characters)
         first_recording = self.data / f'{self.recording_paths[0]}.WAV'
         _, self.sampling_rate = torchaudio.load(first_recording)
         self.samples_per_frame = floor(self.sampling_rate / 1000 * self.frame_length)
@@ -69,6 +71,11 @@ class TimitDataset(torch.utils.data.Dataset):
             line = f.readline().rstrip()
             line2 = line[line.index(' ')+1:]
             sentence = line2[line2.index(' ') + 1:]
+        
+        if len(sentence) > self.max_sentence_length:
+            print(f'sentence too long, check the dataset!, length={len(sentence)}')
+            exit()
+        
         return encode_sentence(sentence)
 
     def resample(self, waveform, sampling_rate):
@@ -102,18 +109,21 @@ class TimitDataset(torch.utils.data.Dataset):
         pn_path = self.data / f'{recording_path}.PHN'
         sentence_path = self.data / f'{recording_path}.TXT'
 
+        sentence = self.get_encoded_sentence_from_file(sentence_path)
+        sentence = sentence.view(1, -1)
+        sentence_padded = torch.zeros(1, self.sentence_padded_size)
+        sentence_padded[:, :sentence.size(1)] = sentence
+        
         waveform, sampling_rate = torchaudio.load(wav_path)
         waveform = self.resample(waveform[0], self.sampling_rate)
-        
         n_samples = len(waveform)
         n_frames = ceil(n_samples / self.samples_per_frame)
         frames = waveform.unfold(0, self.samples_per_frame, self.samples_per_frame)
         specgrams = self.frames_to_spectrograms(frames)
         
-        sentence = self.get_encoded_sentence_from_file(sentence_path)
         labels = self.get_labels_from_file(pn_path, self.samples_per_frame, n_samples)
         
-        return sentence, specgrams, labels
+        return sentence_padded, specgrams, labels
 
     def __len__(self):
         return self.n_recordings
