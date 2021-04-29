@@ -1,4 +1,6 @@
-from utils import TimitDataset, Phoneme, sentence_characters
+from dataset import TimitDataset
+from phonemes import Phoneme
+from utils import sentence_characters
 import torch
 import torch.nn as nn
 import torchaudio

@@ -1,0 +1,119 @@
+from phonemes import Phoneme, get_phonemes_from_file
+from utils import encode_sentence
+import csv
+import librosa
+from math import floor, ceil
+import warnings
+# disable C++ extension warning
+warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
+import torch
+
+import torchaudio
+import torchaudio.transforms as T
+
+
+class TimitDataset(torch.utils.data.Dataset):
+    
+    def __init__(self, root, train, frame_length):
+        super(TimitDataset, self).__init__()
+        self.root = root
+        self.data = root / 'data'
+        self.train = train
+        self.recording_paths = self.get_recording_paths(root, train)
+        self.n_recordings = len(self.recording_paths)
+        self.frame_length = frame_length
+        first_recording = self.data / f'{self.recording_paths[0]}.WAV'
+        _, self.sampling_rate = torchaudio.load(first_recording)
+        self.samples_per_frame = floor(self.sampling_rate / 1000 * self.frame_length)
+        self.specgram_hop_length = 128
+        self.specgram_n_mels = 128
+        self.specgram_size = self.specgram_n_mels * (floor(self.samples_per_frame / self.specgram_hop_length) + 1)
+
+    def get_recording_paths(self, root, train):
+        recording_paths = []
+        train_test_str = "TRAIN" if train else "TEST"
+        with open(root / f'{train_test_str.lower()}_data.csv') as file:
+            next(file)
+            reader = csv.reader(file, delimiter=',')
+            for row in reader:
+                # is train/test data and audiofile
+                if row[1] == train_test_str and row[10] == 'TRUE':
+                    path = row[5]
+                    path_no_ext = path[0:path.index('.')]
+                    recording_paths.append(path_no_ext)
+        return recording_paths
+
+    def get_labels_from_file(self, path, samples_per_frame, n_samples):
+        phonemes = get_phonemes_from_file(path)
+        labels = []
+        phon_idx = 0
+        sample_idx = 0
+
+        while True:
+            if sample_idx + samples_per_frame > n_samples:
+                break
+            phon = phonemes[phon_idx]
+            if phon.stop - sample_idx < 0.5 * samples_per_frame and \
+            phon_idx < len(phonemes) - 1:
+                phon_idx += 1
+                phon = phonemes[phon_idx]
+
+            labels.append(Phoneme.symbol_to_index(phon.symbol))
+            sample_idx += samples_per_frame
+
+        return torch.tensor(labels)
+
+    def get_encoded_sentence_from_file(self, path):
+        sentence = ''
+        with open(path) as f:
+            line = f.readline().rstrip()
+            line2 = line[line.index(' ')+1:]
+            sentence = line2[line2.index(' ') + 1:]
+        return encode_sentence(sentence)
+
+    def resample(self, waveform, sampling_rate):
+        if sampling_rate != self.sampling_rate:
+            waveform = waveform.detach().cpu().numpy()
+            waveform = librosa.resample(waveform, sampling_rate, self.sampling_rate)
+            waveform = torch.tensor(waveform)
+        return waveform
+
+    def frames_to_spectrograms(self, frames):
+        mel_spectrogram = T.MelSpectrogram(
+            sample_rate=self.sampling_rate,
+            n_fft=1024,
+            win_length=None,
+            hop_length=self.specgram_hop_length,
+            center=True,
+            pad_mode="reflect",
+            power=2.0,
+            norm='slaney',
+            onesided=True,
+            n_mels=self.specgram_n_mels,
+        )
+        specgrams = torch.zeros(frames.size(0), self.specgram_size)
+        for i in range(frames.size(0)):
+            specgrams[i] = mel_spectrogram(frames[i]).flatten()
+        return specgrams
+
+    def __getitem__(self, index):
+        recording_path = self.recording_paths[index]
+        wav_path = self.data / f'{recording_path}.WAV'
+        pn_path = self.data / f'{recording_path}.PHN'
+        sentence_path = self.data / f'{recording_path}.TXT'
+
+        waveform, sampling_rate = torchaudio.load(wav_path)
+        waveform = self.resample(waveform[0], self.sampling_rate)
+        
+        n_samples = len(waveform)
+        n_frames = ceil(n_samples / self.samples_per_frame)
+        frames = waveform.unfold(0, self.samples_per_frame, self.samples_per_frame)
+        specgrams = self.frames_to_spectrograms(frames)
+        
+        sentence = self.get_encoded_sentence_from_file(sentence_path)
+        labels = self.get_labels_from_file(pn_path, self.samples_per_frame, n_samples)
+        
+        return sentence, specgrams, labels
+
+    def __len__(self):
+        return self.n_recordings
