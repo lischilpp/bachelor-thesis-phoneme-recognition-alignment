@@ -11,6 +11,3 @@ def encode_sentence(s):
     s = [one_hot_encode(c, sentence_characters) for c in s.lower()]
     s = torch.FloatTensor(s).flatten()
     return s
-
-    
-
