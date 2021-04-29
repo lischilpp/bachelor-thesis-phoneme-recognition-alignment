@@ -128,7 +128,9 @@ class TimitDataset(torch.utils.data.Dataset):
         first_recording = self.data / f'{self.recording_paths[0]}.WAV'
         _, self.sampling_rate = torchaudio.load(first_recording)
         self.samples_per_frame = floor(self.sampling_rate / 1000 * self.frame_length)
-        self.specgram_hop_length = 100
+        self.specgram_hop_length = 128
+        self.specgram_n_mels = 128
+        self.specgram_size = self.specgram_n_mels * (floor(self.samples_per_frame / self.specgram_hop_length) + 1)
 
     def resample(self, waveform, sampling_rate):
         if sampling_rate != self.sampling_rate:
@@ -136,6 +138,24 @@ class TimitDataset(torch.utils.data.Dataset):
             waveform = librosa.resample(waveform, sampling_rate, self.sampling_rate)
             waveform = torch.tensor(waveform)
         return waveform
+
+    def frames_to_spectrograms(self, frames):
+        mel_spectrogram = T.MelSpectrogram(
+            sample_rate=self.sampling_rate,
+            n_fft=1024,
+            win_length=None,
+            hop_length=self.specgram_hop_length,
+            center=True,
+            pad_mode="reflect",
+            power=2.0,
+            norm='slaney',
+            onesided=True,
+            n_mels=self.specgram_n_mels,
+        )
+        specgrams = torch.zeros(frames.size(0), self.specgram_size)
+        for i in range(frames.size(0)):
+            specgrams[i] = mel_spectrogram(frames[i]).flatten()
+        return specgrams
 
     def __getitem__(self, index):
         recording_path = self.recording_paths[index]
@@ -149,33 +169,12 @@ class TimitDataset(torch.utils.data.Dataset):
         n_samples = len(waveform)
         n_frames = ceil(n_samples / self.samples_per_frame)
         frames = waveform.unfold(0, self.samples_per_frame, self.samples_per_frame)
-
-        # n_fft = 1024
-        # win_length = None
-        # hop_length = 42
-        # n_mels = 128
-
-        # mel_spectrogram = T.MelSpectrogram(
-        #     sample_rate=self.sampling_rate,
-        #     n_fft=n_fft,
-        #     win_length=win_length,
-        #     hop_length=hop_length,
-        #     center=True,
-        #     pad_mode="reflect",
-        #     power=2.0,
-        #     norm='slaney',
-        #     onesided=True,
-        #     n_mels=n_mels,
-        # )
-        # specgram = mel_spectrogram(frames[0])
-        # print(specgram.shape)
-        # exit()
-
-
+        specgrams = self.frames_to_spectrograms(frames)
+        
         sentence = get_encoded_sentence_from_file(sentence_path)
         labels = get_labels_from_file(pn_path, self.samples_per_frame, n_samples)
         
-        return sentence, frames, labels
+        return sentence, specgrams, labels
 
     def __len__(self):
         return self.n_recordings
