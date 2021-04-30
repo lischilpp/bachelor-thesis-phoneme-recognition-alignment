@@ -14,17 +14,24 @@ train_ds = TimitDataset(root=timit_path, train=True, frame_length=50)
 
 num_classes = Phoneme.phoneme_count()
 num_epochs = 30
-batch_size = 1
+batch_size = 8
 learning_rate = 0.0001
 
 input_size = train_ds.specgram_height # train_dataset.samples_per_frame
-hidden_size = 256
-num_layers = 4
+hidden_size = 128
+num_layers = 1
 
+def collate_fn(batch):
+    sentences = torch.stack([item[0] for item in batch])
+    frames = torch.cat([item[1] for item in batch])
+    labels = torch.cat([item[2] for item in batch])
+    return [sentences, frames, labels]
+    
 
 train_loader = torch.utils.data.DataLoader(dataset=train_ds, 
                                            batch_size=batch_size, 
-                                           shuffle=True)
+                                           shuffle=True,
+                                           collate_fn=collate_fn)
 
 class RNN(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, output_size):
@@ -51,8 +58,8 @@ n_total_steps = len(train_loader)
 for epoch in range(num_epochs):
     for i, (sentence, specgrams, labels) in enumerate(train_loader): 
         # sentence = sentence.view(1, -1).to(device)
-        specgrams = specgrams[0].to(device)
-        labels = labels.flatten().to(device)
+        specgrams = specgrams.to(device)
+        labels = labels.to(device)
 
         outputs = model(specgrams)
         

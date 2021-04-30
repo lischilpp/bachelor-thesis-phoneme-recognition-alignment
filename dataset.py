@@ -27,10 +27,10 @@ class TimitDataset(torch.utils.data.Dataset):
         first_recording = self.data / f'{self.recording_paths[0]}.WAV'
         _, self.sampling_rate = torchaudio.load(first_recording)
         self.samples_per_frame = floor(self.sampling_rate / 1000 * self.frame_length)
-        self.specgram_hop_length = 64
+        self.specgram_hop_length = 32
         self.specgram_n_mels = 128
-        self.specgram_width = self.specgram_n_mels
-        self.specgram_height = floor(self.samples_per_frame / self.specgram_hop_length) + 1
+        self.specgram_height = self.specgram_n_mels
+        self.specgram_width = floor(self.samples_per_frame / self.specgram_hop_length) + 1
 
     def get_recording_paths(self, root, train):
         recording_paths = []
@@ -102,7 +102,7 @@ class TimitDataset(torch.utils.data.Dataset):
         
         specgrams = torch.zeros(frames.size(0), self.specgram_width, self.specgram_height)
         for i in range(frames.size(0)):
-            specgrams[i] = mel_spectrogram(frames[i])
+            specgrams[i] = mel_spectrogram(frames[i]).transpose(0, 1)
         return specgrams
 
     def __getitem__(self, index):
