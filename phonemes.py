@@ -20,7 +20,7 @@ class Phoneme():
         return s[0:length-1] if s[length - 1].isdigit() else s
 
     def __str__(self):
-        return f"{self.start}-{self.stop}: {self.symbol}"
+        return f'{self.start}-{self.stop}: {self.symbol}'
 
     def __repr__(self):
         return self.__str__()

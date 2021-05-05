@@ -10,16 +10,16 @@ import matplotlib.pyplot as plt
 timit_path = Path('../..//ML_DATA/timit')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-train_ds = TimitDataset(root=timit_path, train=True, frame_length=50)
+train_ds = TimitDataset(root=timit_path, train=True, frame_length=25)
 
 num_classes = Phoneme.phoneme_count()
-num_epochs = 30
-batch_size = 8
+num_epochs = 15
+batch_size = 4
 learning_rate = 0.0001
 
 input_size = train_ds.specgram_height # train_dataset.samples_per_frame
 hidden_size = 128
-num_layers = 1
+num_layers = 2
 
 def collate_fn(batch):
     sentences = torch.stack([item[0] for item in batch])
@@ -38,12 +38,12 @@ class RNN(nn.Module):
         super(RNN, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
-        self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True)
+        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True)
         self.fc = nn.Linear(hidden_size, num_classes)
 
     def forward(self, x):
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device) 
-        out, _ = self.gru(x, h0)
+        out, _ = self.rnn(x, h0)
         out = out[:, -1, :]
         out = self.fc(out)
         return out

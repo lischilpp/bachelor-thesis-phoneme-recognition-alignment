@@ -26,9 +26,9 @@ class TimitDataset(torch.utils.data.Dataset):
         self.sentence_padded_size = self.max_sentence_length * len(sentence_characters)
         first_recording = self.data / f'{self.recording_paths[0]}.WAV'
         _, self.sampling_rate = torchaudio.load(first_recording)
-        self.samples_per_frame = floor(self.sampling_rate / 1000 * self.frame_length)
-        self.specgram_hop_length = 32
-        self.specgram_n_mels = 128
+        self.samples_per_frame = floor(self.sampling_rate / 1000 * self.frame_length)        
+        self.specgram_hop_length = 100
+        self.specgram_n_mels = 64
         self.specgram_height = self.specgram_n_mels
         self.specgram_width = floor(self.samples_per_frame / self.specgram_hop_length) + 1
 
@@ -87,22 +87,17 @@ class TimitDataset(torch.utils.data.Dataset):
         return waveform
 
     def frames_to_spectrograms(self, frames):
-        mel_spectrogram = T.MelSpectrogram(
+        mel_spectrogram_transform = T.MelSpectrogram(
             sample_rate=self.sampling_rate,
-            n_fft=1024,
-            win_length=None,
-            hop_length=self.specgram_hop_length,
-            center=True,
-            pad_mode="reflect",
-            power=2.0,
-            norm='slaney',
-            onesided=True,
             n_mels=self.specgram_n_mels,
+            hop_length=self.specgram_hop_length
         )
         
         specgrams = torch.zeros(frames.size(0), self.specgram_width, self.specgram_height)
         for i in range(frames.size(0)):
-            specgrams[i] = mel_spectrogram(frames[i]).transpose(0, 1)
+            specgram = mel_spectrogram_transform(frames[i]).transpose(0, 1)
+            specgram = specgram = T.AmplitudeToDB()(specgram)
+            specgrams[i] = specgram
         return specgrams
 
     def __getitem__(self, index):
@@ -117,6 +112,8 @@ class TimitDataset(torch.utils.data.Dataset):
         sentence_padded[:, :sentence.size(1)] = sentence
         
         waveform, sampling_rate = torchaudio.load(wav_path)
+        # convert to mono
+        waveform = torch.mean(waveform, dim=0, keepdim=True)
         waveform = self.resample(waveform[0], self.sampling_rate)
         n_samples = len(waveform)
         n_frames = ceil(n_samples / self.samples_per_frame)
