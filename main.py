@@ -6,24 +6,29 @@ import torch.nn as nn
 import torchaudio
 from pathlib import Path
 import matplotlib.pyplot as plt
+import numpy as np
+from torch.nn.utils.rnn import pad_sequence
 
-timit_path = Path('../..//ML_DATA/timit')
+timit_path = Path('../../ML_DATA/timit')
 checkpoint_path = Path('checkpoint.pt')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 num_classes = Phoneme.phoneme_count()
-num_epochs = 15
-batch_size = 4
-learning_rate = 0.0001
+num_epochs = 100
+batch_size = 16
+learning_rate = 0.00001
 
 hidden_size = 128
 num_layers = 2
 
 def collate_fn(batch):
-    sentences = torch.stack([item[0] for item in batch])
-    frames = torch.cat([item[1] for item in batch])
+    sentences = torch.cat([item[0] for item in batch])
+    lengths = torch.tensor([item[1].size(0) for item in batch])
+    frames = [item[1] for item in batch]
+    frames = pad_sequence(frames, batch_first=True)
     labels = torch.cat([item[2] for item in batch])
-    return [sentences, frames, labels]
+    frame_data = (frames, lengths)
+    return [sentences, frame_data, labels]
 
 train_ds = TimitDataset(root=timit_path, train=True, frame_length=25)
 test_ds = TimitDataset(root=timit_path, train=False, frame_length=25)
@@ -42,24 +47,28 @@ test_loader = torch.utils.data.DataLoader(dataset=test_ds,
 class RNN(nn.Module):
     def __init__(self):
         super(RNN, self).__init__()
-        self.num_layers1 = 1
-        self.num_layers2 = 1
+        self.num_layers1 = 2
+        self.num_layers2 = 2
         self.hidden_size1 = 128
         self.hidden_size2 = 128
-        self.rnn1 = nn.RNN(train_ds.specgram_height, self.hidden_size1, self.num_layers1, batch_first=True)
-        self.rnn2 = nn.GRU(self.hidden_size1, self.hidden_size2, self.num_layers1, batch_first=True)
-        self.fc = nn.Linear(self.hidden_size2, num_classes)
+        self.rnn1 = nn.RNN(train_ds.specgram_height, self.hidden_size1, self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
+        self.rnn2 = nn.GRU(self.hidden_size1*2, self.hidden_size2, self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
+        self.fc = nn.Linear(self.hidden_size2*2, num_classes)
 
-    def forward(self, x):
-        h01 = torch.zeros(self.num_layers1, x.size(0), self.hidden_size1).to(device) 
-        out, _ = self.rnn1(x, h01)
-        out = out[:, -1, :]
-        out2 = out.unsqueeze(0)
-        h02 = torch.zeros(self.num_layers2, 1, self.hidden_size2).to(device)
-        out2, _ = self.rnn2(out2, h02)
-        predictions = torch.zeros(x.size(0), num_classes).to(device)
-        for i in range(out2.size(1)):
-            predictions[i] = self.fc(out2[0][i])
+    def forward(self, x, lengths):
+        predictions = torch.zeros(lengths.sum().item(), num_classes).to(device)
+        p = 0
+        for i in range(batch_size):
+            h01 = torch.zeros(self.num_layers1*2, x.size(1), self.hidden_size1).to(device) 
+            out, _ = self.rnn1(x[i], h01)
+            out = out[:, -1, :]
+            out2 = out.unsqueeze(0)
+            h02 = torch.zeros(self.num_layers2*2, 1, self.hidden_size2).to(device)
+            out2, _ = self.rnn2(out2, h02)
+            for j in range(lengths[i]):
+                predictions[p] = self.fc(out2[0][j])
+                p += 1
+
         return predictions
     
 
@@ -78,12 +87,12 @@ if checkpoint_path.exists():
 # train
 n_total_steps = len(train_loader)
 for epoch in range(last_epoch, num_epochs):
-    for i, (sentence, specgrams, labels) in enumerate(train_loader): 
+    for i, (sentence, (specgrams, lengths), labels) in enumerate(train_loader): 
         # sentence = sentence.view(1, -1).to(device)
         specgrams = specgrams.to(device)
         labels = labels.to(device)
 
-        outputs = model(specgrams)
+        outputs = model(specgrams, lengths)
         
         loss = criterion(outputs, labels)
         optimizer.zero_grad()
@@ -94,10 +103,13 @@ for epoch in range(last_epoch, num_epochs):
         if (i+1) % 100 == 0:
             print (f'Epoch [{epoch+1}/{num_epochs}], Step [{i+1}/{n_total_steps}], Loss: {loss.item():.4f}')
 
-torch.save({'epoch': num_epochs,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            }, checkpoint_path)
+
+    if epoch % 5 == 0:
+        torch.save({'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    }, checkpoint_path)
+
 
 # test
 with torch.no_grad():
@@ -105,10 +117,10 @@ with torch.no_grad():
     n_samples = 0
     n_class_correct = [0 for i in range(num_classes)]
     n_class_samples = [0 for i in range(num_classes)]
-    for i, (sentence, specgrams, labels) in enumerate(test_loader): 
+    for i, (sentence, (specgrams, lengths), labels) in enumerate(test_loader): 
         specgrams = specgrams.to(device)
         labels = labels.to(device)
-        outputs = model(specgrams)
+        outputs = model(specgrams, lengths)
         _, predicted = torch.max(outputs, 1)
         n_samples += labels.size(0)
         n_correct += (predicted == labels).sum().item()

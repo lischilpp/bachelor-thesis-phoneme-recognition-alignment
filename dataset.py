@@ -2,7 +2,7 @@ from phonemes import Phoneme, get_phonemes_from_file
 from utils import encode_sentence, sentence_characters
 import csv
 import librosa
-from math import floor, ceil
+from math import floor
 import warnings
 # disable C++ extension warning
 warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
@@ -111,12 +111,11 @@ class TimitDataset(torch.utils.data.Dataset):
         sentence_padded = torch.zeros(1, self.sentence_padded_size)
         sentence_padded[:, :sentence.size(1)] = sentence
         
-        waveform, sampling_rate = torchaudio.load(wav_path)
+        waveform, _ = torchaudio.load(wav_path)
         # convert to mono
         waveform = torch.mean(waveform, dim=0, keepdim=True)
         waveform = self.resample(waveform[0], self.sampling_rate)
         n_samples = len(waveform)
-        n_frames = ceil(n_samples / self.samples_per_frame)
         frames = waveform.unfold(0, self.samples_per_frame, self.samples_per_frame)
         specgrams = self.frames_to_spectrograms(frames)
         
