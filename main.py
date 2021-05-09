@@ -39,19 +39,19 @@ class TimitDataModule(pl.LightningDataModule):
     def setup(self, stage):
         self.train_ds = TimitDataset(train=True)
         self.test_ds  = TimitDataset(train=False)
+        self.ds_args = {'batch_size': batch_size,
+                        'collate_fn': collate_fn,
+                        'num_workers': 6,
+                        'pin_memory': True}
 
     def train_dataloader(self):
         return DataLoader(dataset=self.train_ds,
-                        batch_size=batch_size,
-                        shuffle=True,
-                        collate_fn=collate_fn,
-                        num_workers=4)
+                          shuffle=True,
+                          **self.ds_args)
 
     def val_dataloader(self):
         return DataLoader(dataset=self.test_ds,
-                      batch_size=batch_size,
-                      collate_fn=collate_fn,
-                      num_workers=4)
+                          **self.ds_args)
     
 
 
@@ -69,18 +69,18 @@ class PhonemeClassifier(pl.LightningModule):
         self.criterion = nn.CrossEntropyLoss()
 
     def forward(self, x, lengths):
-        predictions = torch.zeros(lengths.sum().item(), num_classes).cuda()
+        predictions = torch.zeros(lengths.sum().item(), num_classes).cuda(non_blocking=True)
         p = 0
         for i in range(x.size(0)):
             # feature extraction
             # single frame passed as sequence into BiRNN (many-to-one)
-            h01 = torch.zeros(self.num_layers1*2, x.size(1), self.hidden_size1).cuda()
+            h01 = torch.zeros(self.num_layers1*2, x.size(1), self.hidden_size1).cuda(non_blocking=True)
             out, _ = self.rnn1(x[i], h01)
             out = out[:, -1, :]
             out2 = out.unsqueeze(0)
             # frame classification
             # features of all frames of an audiofile passed into BiGRU (many-to-many)
-            h02 = torch.zeros(self.num_layers2*2, 1, self.hidden_size2).cuda()
+            h02 = torch.zeros(self.num_layers2*2, 1, self.hidden_size2).cuda(non_blocking=True)
             out2, _ = self.rnn2(out2, h02)
             for j in range(lengths[i]):
                 predictions[p] = self.fc(out2[0][j])
@@ -114,6 +114,6 @@ if __name__ == '__main__':
     data_module = TimitDataModule()
 
     model = PhonemeClassifier()
-    trainer = pl.Trainer(gpus=1, max_epochs=100, profiler="simple")
+    trainer = pl.Trainer(gpus=1, max_epochs=100)
 
     trainer.fit(model, data_module)
