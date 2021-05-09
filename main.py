@@ -22,21 +22,21 @@ hidden_size = 128
 num_layers = 2
 
 def collate_fn(batch):
-    sentences = torch.cat([item[0] for item in batch])
-    lengths = torch.tensor([item[1].size(0) for item in batch])
-    frames = [item[1] for item in batch]
+    # sentences = torch.cat([item[0] for item in batch])
+    lengths = torch.tensor([item[0].size(0) for item in batch])
+    frames = [item[0] for item in batch]
     frames = pad_sequence(frames, batch_first=True)
-    labels = torch.cat([item[2] for item in batch])
+    labels = torch.cat([item[1] for item in batch])
     frame_data = (frames, lengths)
-    return [sentences, frame_data, labels]
+    return [frame_data, labels]
 
-train_ds = TimitDataset(root=timit_path, train=True, frame_length=25)
-test_ds = TimitDataset(root=timit_path, train=False, frame_length=25)
+train_ds = TimitDataset(root=timit_path, train=True, frame_length=25, stride=10)
+test_ds = TimitDataset(root=timit_path, train=False, frame_length=25, stride=10)
 input_size = train_ds.specgram_height
 
 train_loader = torch.utils.data.DataLoader(dataset=train_ds, 
                                         batch_size=batch_size, 
-                                        shuffle=True,
+                                        shuffle=False,
                                         collate_fn=collate_fn)
 
 test_loader = torch.utils.data.DataLoader(dataset=test_ds, 
@@ -92,7 +92,7 @@ class Main():
         criterion = nn.CrossEntropyLoss()
         n_total_steps = len(train_loader)
         for epoch in range(self.last_epoch, num_epochs):
-            for i, (sentence, (specgrams, lengths), labels) in enumerate(train_loader): 
+            for i, ((specgrams, lengths), labels) in enumerate(train_loader): 
                 # sentence = sentence.view(1, -1).to(device)
                 specgrams = specgrams.to(device)
                 labels = labels.to(device)
@@ -120,7 +120,7 @@ class Main():
             n_samples = 0
             n_class_correct = [0 for i in range(num_classes)]
             n_class_samples = [0 for i in range(num_classes)]
-            for i, (sentence, (specgrams, lengths), labels) in enumerate(test_loader): 
+            for i, ((specgrams, lengths), labels) in enumerate(test_loader): 
                 specgrams = specgrams.to(device)
                 labels = labels.to(device)
                 outputs = self.model(specgrams, lengths)
