@@ -1,4 +1,5 @@
 from pathlib import Path
+from math import floor
 import numpy as np
 import warnings
 # disable C++ extension warning
@@ -6,9 +7,9 @@ warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 import torch
 import torch.nn as nn
 import torchaudio
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from torch.nn.utils.rnn import pad_sequence
-from torch.optim.lr_scheduler import MultiplicativeLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 import pytorch_lightning as pl
 
 from settings import *
@@ -19,8 +20,8 @@ from utils import sentence_characters
 
 num_classes = Phoneme.phoneme_count()
 num_epochs = 100
-batch_size = 32
-learning_rate = 0.0001
+batch_size = 64
+learning_rate = 0.001
 input_size = SPECGRAM_N_MELS
 
 
@@ -37,8 +38,16 @@ def collate_fn(batch):
 class TimitDataModule(pl.LightningDataModule):
 
     def setup(self, stage):
-        self.train_ds = TimitDataset(train=True)
-        self.test_ds  = TimitDataset(train=False)
+        train_val_data = TimitDataset(train=True)
+        train_val_count = len(train_val_data)
+        val_percentage = 0.2
+        val_count = floor(train_val_count * val_percentage)
+        train_count = train_val_count - val_count
+
+        self.train_ds, self.val_ds = random_split(train_val_data,
+                                                 [train_count, val_count])
+        self.test_ds = TimitDataset(train=False)
+
         self.ds_args = {'batch_size': batch_size,
                         'collate_fn': collate_fn,
                         'num_workers': 6,
@@ -57,7 +66,7 @@ class TimitDataModule(pl.LightningDataModule):
 
 class PhonemeClassifier(pl.LightningModule):
 
-    def __init__(self):
+    def __init__(self, batch_size, lr):
         super().__init__()
         self.num_layers1 = 2
         self.num_layers2 = 2
@@ -67,6 +76,8 @@ class PhonemeClassifier(pl.LightningModule):
         self.rnn2 = nn.GRU(self.hidden_size1*2, self.hidden_size2, self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
         self.fc = nn.Linear(self.hidden_size2*2, num_classes)
         self.criterion = nn.CrossEntropyLoss()
+        self.batch_size = batch_size
+        self.lr = lr
 
     def forward(self, x, lengths):
         predictions = torch.zeros(lengths.sum().item(), num_classes).cuda(non_blocking=True)
@@ -106,14 +117,16 @@ class PhonemeClassifier(pl.LightningModule):
         self.log('val_loss', loss)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
-        return optimizer
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        lr_schedulers = {'scheduler': ReduceLROnPlateau(optimizer, patience=4),
+                         'monitor': 'bla'}
+        return [optimizer], [lr_schedulers]
 
 
 if __name__ == '__main__':
     data_module = TimitDataModule()
 
-    model = PhonemeClassifier()
+    model = PhonemeClassifier(batch_size, learning_rate)
     trainer = pl.Trainer(gpus=1, max_epochs=100)
 
     trainer.fit(model, data_module)
