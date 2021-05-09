@@ -1,13 +1,18 @@
-from dataset import TimitDataset
-from phonemes import Phoneme
-from utils import sentence_characters
+from pathlib import Path
+import numpy as np
+import warnings
+# disable C++ extension warning
+warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 import torch
 import torch.nn as nn
 import torchaudio
-from pathlib import Path
-import matplotlib.pyplot as plt
-import numpy as np
 from torch.nn.utils.rnn import pad_sequence
+from torch.optim.lr_scheduler import MultiplicativeLR
+
+from dataset import TimitDataset
+from phonemes import Phoneme
+from utils import sentence_characters
+
 
 timit_path = Path('../../ML_DATA/timit')
 checkpoint_path = Path('checkpoint.pt')
@@ -16,9 +21,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 num_classes = Phoneme.phoneme_count()
 num_epochs = 100
 batch_size = 64
-learning_rate = 0.00001
+learning_rate = 0.001
 
-hidden_size = 128
 num_layers = 2
 
 def collate_fn(batch):
@@ -36,7 +40,7 @@ input_size = train_ds.specgram_height
 
 train_loader = torch.utils.data.DataLoader(dataset=train_ds, 
                                         batch_size=batch_size, 
-                                        shuffle=False,
+                                        shuffle=True,
                                         collate_fn=collate_fn)
 
 test_loader = torch.utils.data.DataLoader(dataset=test_ds, 
@@ -79,7 +83,10 @@ class RNN(nn.Module):
 class Main():
     def __init__(self):
         self.model = RNN().to(device)
+        self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate) 
+        lmbda = lambda epoch: 0.95
+        self.scheduler = MultiplicativeLR(self.optimizer, lr_lambda=lmbda)
         self.last_epoch = 0
         if checkpoint_path.exists():
             self.checkpoint = torch.load(checkpoint_path)
@@ -89,7 +96,6 @@ class Main():
             print(f'loaded from checkpoint epoch={self.last_epoch}')
 
     def train(self):
-        criterion = nn.CrossEntropyLoss()
         n_total_steps = len(train_loader)
         for epoch in range(self.last_epoch, num_epochs):
             for i, ((specgrams, lengths), labels) in enumerate(train_loader): 
@@ -99,18 +105,19 @@ class Main():
 
                 outputs = self.model(specgrams, lengths)
                 
-                loss = criterion(outputs, labels)
+                loss = self.criterion(outputs, labels)
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
+                self.scheduler.step()
                 
                 print (f'Epoch [{epoch+1}/{num_epochs}], Step [{i+1}/{n_total_steps}], Loss: {loss.item():.4f}')
 
-            if epoch % 5 == 0:
-                torch.save({'epoch': epoch,
-                            'model_state_dict': self.model.state_dict(),
-                            'optimizer_state_dict': self.optimizer.state_dict(),
-                            }, checkpoint_path)
+            #if epoch % 5 == 0:
+            torch.save({'epoch': epoch,
+                        'model_state_dict': self.model.state_dict(),
+                        'optimizer_state_dict': self.optimizer.state_dict(),
+                        }, checkpoint_path)
 
     def test(self):
         with torch.no_grad():

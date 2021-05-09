@@ -1,8 +1,5 @@
 from math import floor, ceil
 import csv
-import warnings
-# disable C++ extension warning
-warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 import librosa
 import torch
 import torchaudio
@@ -96,6 +93,21 @@ class TimitDataset(torch.utils.data.Dataset):
         return waveform
 
 
+    def waveform_to_frames(self, waveform, n_samples):
+        self.samples_per_frame = floor(self.samples_per_frame)
+        waveform_duration = n_samples / self.sampling_rate * 1000
+        n_frames = int(floor((waveform_duration - self.frame_length)/self.stride)) + 1
+        frames = torch.zeros(n_frames, self.samples_per_frame)
+        x = 0
+        i = 0
+        while x + self.samples_per_frame < n_samples:
+            idx = floor(x)
+            frames[i] = waveform[idx : idx + self.samples_per_frame]
+            x += self.samples_per_stride
+            i += 1
+        return frames
+
+
     def frames_to_spectrograms(self, frames):
         mel_spectrogram_transform = T.MelSpectrogram(
             sample_rate=self.sampling_rate,
@@ -121,10 +133,10 @@ class TimitDataset(torch.utils.data.Dataset):
         # sentence_padded[:, :sentence.size(1)] = sentence
         
         waveform, _ = torchaudio.load(wav_path)
-        n_samples = len(waveform)
         # convert to mono
         waveform = torch.mean(waveform, dim=0, keepdim=True)
         waveform = self.resample(waveform[0], self.sampling_rate)
+        n_samples = len(waveform)
         frames = self.waveform_to_frames(waveform, n_samples)
         specgrams = self.frames_to_spectrograms(frames)
 
