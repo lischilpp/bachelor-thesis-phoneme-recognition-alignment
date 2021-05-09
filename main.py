@@ -104,9 +104,7 @@ class Main():
                 loss.backward()
                 self.optimizer.step()
                 
-                
-                if (i+1) % 100 == 0:
-                    print (f'Epoch [{epoch+1}/{num_epochs}], Step [{i+1}/{n_total_steps}], Loss: {loss.item():.4f}')
+                print (f'Epoch [{epoch+1}/{num_epochs}], Step [{i+1}/{n_total_steps}], Loss: {loss.item():.4f}')
 
             if epoch % 5 == 0:
                 torch.save({'epoch': epoch,
@@ -117,7 +115,7 @@ class Main():
     def test(self):
         with torch.no_grad():
             n_correct = 0
-            n_samples = 0
+            n_frames = 0
             n_class_correct = [0 for i in range(num_classes)]
             n_class_samples = [0 for i in range(num_classes)]
             for i, ((specgrams, lengths), labels) in enumerate(test_loader): 
@@ -125,11 +123,12 @@ class Main():
                 labels = labels.to(device)
                 outputs = self.model(specgrams, lengths)
                 _, predicted = torch.max(outputs, 1)
-                n_samples += labels.size(0)
+                n_frames += labels.size(0)
                 n_correct += (predicted == labels).sum().item()
 
-            acc = 100.0 * n_correct / n_samples
-            print(f'Accuracy of the network: {acc} %')
+            n_wrong = n_frames - n_correct
+            fer = 100.0 * n_wrong / n_frames
+            print(f'FER: {fer} %')
 
 if __name__ == '__main__':
     main = Main()

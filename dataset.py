@@ -1,15 +1,16 @@
-from phonemes import Phoneme, get_phonemes_from_file
-from utils import encode_sentence, sentence_characters
-import csv
-import librosa
 from math import floor, ceil
+import csv
 import warnings
 # disable C++ extension warning
 warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
+import librosa
 import torch
-
 import torchaudio
 import torchaudio.transforms as T
+
+from phonemes import Phoneme, get_phonemes_from_file
+from utils import encode_sentence, sentence_characters
+
 
 
 class TimitDataset(torch.utils.data.Dataset):
@@ -25,11 +26,11 @@ class TimitDataset(torch.utils.data.Dataset):
         self.stride = stride
         self.max_sentence_length = 100
         self.sentence_padded_size = self.max_sentence_length * len(sentence_characters)
-        first_recording = self.data / f'{self.recording_paths[0]}.WAV'
-        _, self.sampling_rate = torchaudio.load(first_recording)
+        first_recording_path = self.data / f'{self.recording_paths[0]}.WAV'
+        _, self.sampling_rate = torchaudio.load(first_recording_path)
         self.samples_per_frame = self.sampling_rate / 1000 * self.frame_length       
         self.samples_per_stride = self.sampling_rate / 1000 * self.stride    
-        self.specgram_hop_length = 100
+        self.specgram_hop_length = 64
         self.specgram_n_mels = 64
         self.specgram_height = self.specgram_n_mels
         self.specgram_width = floor(self.samples_per_frame / self.specgram_hop_length) + 1
@@ -95,29 +96,15 @@ class TimitDataset(torch.utils.data.Dataset):
         return waveform
 
 
-    def waveform_to_specgrams(self, waveform, n_samples):
+    def frames_to_spectrograms(self, frames):
         mel_spectrogram_transform = T.MelSpectrogram(
             sample_rate=self.sampling_rate,
             n_mels=self.specgram_n_mels,
             hop_length=self.specgram_hop_length
         )
 
-        waveform_duration = n_samples / self.sampling_rate * 1000
-        n_frames = int(floor((waveform_duration - self.frame_length)/self.stride)) + 1
-
-        full_specgram = mel_spectrogram_transform(waveform).transpose(0, 1)
-        full_specgram_width = full_specgram.size(0)
-        stride_spec = self.stride / waveform_duration * full_specgram_width
-        specgram_width = floor(full_specgram_width / waveform_duration * self.frame_length)
-
-        specgrams = torch.zeros(n_frames, specgram_width, self.specgram_n_mels)
-        i = 0
-        x = 0
-        while x + specgram_width < full_specgram_width:
-            start = round(x)
-            specgrams[i] = full_specgram[start : start + specgram_width]
-            x += stride_spec
-            i += 1
+        n_frames = len(frames)
+        specgrams = T.AmplitudeToDB()(mel_spectrogram_transform(frames)).transpose(1, 2)
 
         return specgrams
 
@@ -134,15 +121,15 @@ class TimitDataset(torch.utils.data.Dataset):
         # sentence_padded[:, :sentence.size(1)] = sentence
         
         waveform, _ = torchaudio.load(wav_path)
+        n_samples = len(waveform)
         # convert to mono
         waveform = torch.mean(waveform, dim=0, keepdim=True)
         waveform = self.resample(waveform[0], self.sampling_rate)
-        n_samples = len(waveform)
-        
-        specgrams = self.waveform_to_specgrams(waveform, n_samples)
-        
+        frames = self.waveform_to_frames(waveform, n_samples)
+        specgrams = self.frames_to_spectrograms(frames)
+
         labels = self.get_labels_from_file(pn_path, n_samples)
-        
+    
         return specgrams, labels
 
 
