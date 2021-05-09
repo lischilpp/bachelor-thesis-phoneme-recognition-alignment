@@ -9,19 +9,18 @@ import torchaudio
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim.lr_scheduler import MultiplicativeLR
 
+from settings import *
 from dataset import TimitDataset
 from phonemes import Phoneme
 from utils import sentence_characters
 
 
-timit_path = Path('../../ML_DATA/timit')
-checkpoint_path = Path('checkpoint.pt')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 num_classes = Phoneme.phoneme_count()
 num_epochs = 100
-batch_size = 64
-learning_rate = 0.001
+batch_size = 32
+learning_rate = 0.0001
 
 num_layers = 2
 
@@ -34,9 +33,9 @@ def collate_fn(batch):
     frame_data = (frames, lengths)
     return [frame_data, labels]
 
-train_ds = TimitDataset(root=timit_path, train=True, frame_length=25, stride=10)
-test_ds = TimitDataset(root=timit_path, train=False, frame_length=25, stride=10)
-input_size = train_ds.specgram_height
+train_ds = TimitDataset(train=True)
+test_ds = TimitDataset(train=False)
+input_size = SPECGRAM_N_MELS
 
 train_loader = torch.utils.data.DataLoader(dataset=train_ds, 
                                         batch_size=batch_size, 
@@ -55,7 +54,7 @@ class RNN(nn.Module):
         self.num_layers2 = 2
         self.hidden_size1 = 128
         self.hidden_size2 = 128
-        self.rnn1 = nn.RNN(train_ds.specgram_height, self.hidden_size1, self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
+        self.rnn1 = nn.RNN(SPECGRAM_N_MELS, self.hidden_size1, self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
         self.rnn2 = nn.GRU(self.hidden_size1*2, self.hidden_size2, self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
         self.fc = nn.Linear(self.hidden_size2*2, num_classes)
 
@@ -88,8 +87,8 @@ class Main():
         lmbda = lambda epoch: 0.95
         self.scheduler = MultiplicativeLR(self.optimizer, lr_lambda=lmbda)
         self.last_epoch = 0
-        if checkpoint_path.exists():
-            self.checkpoint = torch.load(checkpoint_path)
+        if CHECKPOINT_PATH.exists():
+            self.checkpoint = torch.load(CHECKPOINT_PATH)
             self.model.load_state_dict(self.checkpoint['model_state_dict'])
             self.optimizer.load_state_dict(self.checkpoint['optimizer_state_dict'])
             self.last_epoch = self.checkpoint['epoch']
@@ -117,7 +116,7 @@ class Main():
             torch.save({'epoch': epoch,
                         'model_state_dict': self.model.state_dict(),
                         'optimizer_state_dict': self.optimizer.state_dict(),
-                        }, checkpoint_path)
+                        }, CHECKPOINT_PATH)
 
     def test(self):
         with torch.no_grad():
