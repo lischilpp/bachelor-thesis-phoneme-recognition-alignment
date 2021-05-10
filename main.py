@@ -26,7 +26,6 @@ input_size = SPECGRAM_N_MELS
 
 
 def collate_fn(batch):
-    # sentences = torch.cat([item[0] for item in batch])
     lengths = torch.tensor([item[0].size(0) for item in batch])
     frames = [item[0] for item in batch]
     frames = pad_sequence(frames, batch_first=True)
@@ -59,6 +58,10 @@ class TimitDataModule(pl.LightningDataModule):
                           **self.ds_args)
 
     def val_dataloader(self):
+        return DataLoader(dataset=self.val_ds,
+                          **self.ds_args)
+
+    def test_dataloader(self):
         return DataLoader(dataset=self.test_ds,
                           **self.ds_args)
     
@@ -114,19 +117,20 @@ class PhonemeClassifier(pl.LightningModule):
 
         outputs = self.forward(specgrams, lengths)
         loss = self.criterion(outputs, labels)
-        self.log('val_loss', loss)
+        self.log('val_loss', loss, prog_bar=True)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         lr_schedulers = {'scheduler': ReduceLROnPlateau(optimizer, patience=4),
-                         'monitor': 'bla'}
+                         'monitor': 'val_loss'}
         return [optimizer], [lr_schedulers]
 
 
 if __name__ == '__main__':
-    data_module = TimitDataModule()
+    dm = TimitDataModule()
 
     model = PhonemeClassifier(batch_size, learning_rate)
     trainer = pl.Trainer(gpus=1, max_epochs=100)
 
-    trainer.fit(model, data_module)
+    trainer.fit(model, dm)
+    trainer.test(datamodule=dm)
