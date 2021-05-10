@@ -79,18 +79,18 @@ class ClassificationModel(nn.Module):
         self.fc = nn.Linear(self.hidden_size2*2, num_classes)
 
     def forward(self, x, lengths):
-        predictions = torch.zeros(lengths.sum().item(), num_classes).cuda(non_blocking=True)
+        predictions = torch.zeros(lengths.sum().item(), num_classes, device=CUDA0)
         p = 0
         for i in range(x.size(0)):
             # feature extraction
             # single frame passed as sequence into BiRNN (many-to-one)
-            h01 = torch.zeros(self.num_layers1*2, x.size(1), self.hidden_size1).cuda(non_blocking=True)
+            h01 = torch.zeros(self.num_layers1*2, x.size(1), self.hidden_size1, device=CUDA0)
             out, _ = self.rnn1(x[i], h01)
             out = out[:, -1, :]
             out2 = out.unsqueeze(0)
             # frame classification
             # features of all frames of an audiofile passed into BiGRU (many-to-many)
-            h02 = torch.zeros(self.num_layers2*2, 1, self.hidden_size2).cuda(non_blocking=True)
+            h02 = torch.zeros(self.num_layers2*2, 1, self.hidden_size2, device=CUDA0)
             out2, _ = self.rnn2(out2, h02)
             for j in range(lengths[i]):
                 predictions[p] = self.fc(out2[0][j])
@@ -151,7 +151,7 @@ if __name__ == '__main__':
     dm = TimitDataModule()
     
     model = PhonemeClassifier(batch_size, learning_rate)
-    trainer = pl.Trainer(gpus=1, max_epochs=15)#, resume_from_checkpoint='lightning_logs/version_42/checkpoints/epoch=14-step=314.ckpt')
+    trainer = pl.Trainer(gpus=1, max_epochs=30, precision=16)#, resume_from_checkpoint='lightning_logs/version_42/checkpoints/epoch=14-step=314.ckpt')
 
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)
