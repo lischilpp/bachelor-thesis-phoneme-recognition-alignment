@@ -8,13 +8,14 @@ import torch
 import torchaudio
 import torchaudio.transforms as T
 
+from settings import *
 from phonemes import Phoneme, get_phonemes_from_file
 
 
 class TimitDatasetGenerator(torch.utils.data.Dataset):
     
     def __init__(self, root, train, frame_length, stride):
-        super(TimitDataset, self).__init__()
+        super(TimitDatasetGenerator, self).__init__()
         self.root = root
         self.data = root / 'data'
         self.train = train
@@ -52,7 +53,7 @@ class TimitDatasetGenerator(torch.utils.data.Dataset):
         x = 0
         
         while x + self.samples_per_frame < n_samples:
-            sample_idx = round(x)
+            sample_idx = floor(x)
             phon = phonemes[phon_idx]
             if phon.stop - sample_idx < 0.5 * self.samples_per_frame and \
             phon_idx < len(phonemes) - 1:
@@ -77,16 +78,15 @@ class TimitDatasetGenerator(torch.utils.data.Dataset):
     def waveform_to_frames(self, waveform, n_samples):
         self.samples_per_frame = floor(self.samples_per_frame)
         waveform_duration = n_samples / self.sampling_rate * 1000
-        n_frames = int(floor((waveform_duration - self.frame_length) / self.stride)) + 1
-        frames = torch.zeros(n_frames, self.samples_per_frame)
+        frames = []
         x = 0
         i = 0
         while x + self.samples_per_frame < n_samples:
             idx = floor(x)
-            frames[i] = waveform[idx : idx + self.samples_per_frame]
+            frames.append(waveform[idx : idx + self.samples_per_frame])
             x += self.samples_per_stride
             i += 1
-        return frames
+        return torch.stack(frames)
 
 
     def frames_to_spectrograms(self, frames):

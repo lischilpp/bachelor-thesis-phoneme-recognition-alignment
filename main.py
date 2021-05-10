@@ -12,6 +12,7 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import pytorch_lightning as pl
 from pytorch_lightning.metrics import functional as FM
+from pytorch_lightning.callbacks import LearningRateMonitor
 
 from settings import *
 from dataset import TimitDataset
@@ -21,8 +22,8 @@ from utils import sentence_characters
 
 num_classes = Phoneme.phoneme_count()
 num_epochs = 100
-batch_size = 64
-learning_rate = 0.01
+batch_size = 16
+learning_rate = 0.001
 input_size = SPECGRAM_N_MELS
 
 
@@ -106,6 +107,9 @@ class PhonemeClassifier(pl.LightningModule):
         self.lr = lr
         self.model = ClassificationModel()
         self.criterion = nn.CrossEntropyLoss()
+
+    def on_epoch_start(self):
+        self.log('lr', self.lr)
     
     def training_step(self, batch, batch_idx):
         (specgrams, lengths), labels = batch
@@ -113,6 +117,7 @@ class PhonemeClassifier(pl.LightningModule):
         outputs = self.model(specgrams, lengths)
         loss = self.criterion(outputs, labels)
         self.log('train_loss', loss)
+        self.log("lr", self.lr, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -135,9 +140,9 @@ class PhonemeClassifier(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
-        lr_schedulers = {'scheduler': ReduceLROnPlateau(optimizer, patience=0),
-                         'monitor': 'val_loss'}
-        return [optimizer], [lr_schedulers]
+        lr_scheduler = {'scheduler': ReduceLROnPlateau(optimizer, patience=0),
+                        'monitor': 'val_loss'}
+        return [optimizer], [lr_scheduler]
 
     # hide v_num in progres bar
     def get_progress_bar_dict(self):
