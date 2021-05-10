@@ -1,6 +1,7 @@
 import string
 import torch
 
+
 sentence_characters = list(string.ascii_lowercase) + \
                       [',', ';', '.', '!', '?', ':', '-', '\'', '\"', ' ']
 

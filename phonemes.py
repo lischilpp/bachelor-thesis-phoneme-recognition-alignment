@@ -1,5 +1,6 @@
 import csv
 
+
 class Phoneme():
     phoneme_list = [
         'b', 'd', 'g', 'p', 't', 'k', 'dx', 'q', 'jh', 'ch', 's', 'sh', 'z',

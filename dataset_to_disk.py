@@ -4,6 +4,7 @@ import torch
 from settings import *
 from dataset_generator import TimitDatasetGenerator
 
+
 def dataset_to_disk(ds, save_path):
     if not save_path.exists():
         save_path.mkdir()

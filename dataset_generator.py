@@ -15,7 +15,7 @@ from phonemes import Phoneme, get_phonemes_from_file
 class TimitDatasetGenerator(torch.utils.data.Dataset):
     
     def __init__(self, root, train, frame_length, stride):
-        super(TimitDatasetGenerator, self).__init__()
+        super().__init__()
         self.root = root
         self.data = root / 'data'
         self.train = train
@@ -27,7 +27,6 @@ class TimitDatasetGenerator(torch.utils.data.Dataset):
         _, self.sampling_rate = torchaudio.load(first_recording_path)
         self.samples_per_frame = self.sampling_rate / 1000 * self.frame_length       
         self.samples_per_stride = self.sampling_rate / 1000 * self.stride    
-        self.specgram_width = floor(self.samples_per_frame / SPECGRAM_HOP_LENGTH) + 1
 
 
     def get_recording_paths(self, root, train):

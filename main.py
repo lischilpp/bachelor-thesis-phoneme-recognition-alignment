@@ -1,14 +1,11 @@
-from pathlib import Path
-from math import floor
 import numpy as np
 import warnings
 # disable C++ extension warning
 warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
-import torch
-import torch.nn as nn
 import torchaudio
-from torch.utils.data import DataLoader, random_split
+import torch.nn as nn
 from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data import DataLoader, random_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import pytorch_lightning as pl
 from pytorch_lightning.metrics import functional as FM
@@ -17,24 +14,21 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 from settings import *
 from dataset import TimitDataset
 from phonemes import Phoneme
-from utils import sentence_characters
+from model import Model
 
 
-num_classes = Phoneme.phoneme_count()
 num_epochs = 100
 batch_size = 16
 learning_rate = 0.001
-input_size = SPECGRAM_N_MELS
 
 
 def collate_fn(batch):
-    lengths = torch.tensor([item[0].size(0) for item in batch])
-    frames = [item[0] for item in batch]
-    frames = pad_sequence(frames, batch_first=True)
-    labels = torch.cat([item[1] for item in batch])
-    frame_data = (frames, lengths)
-    return [frame_data, labels]
-
+        lengths = torch.tensor([item[0].size(0) for item in batch])
+        frames = [item[0] for item in batch]
+        frames = pad_sequence(frames, batch_first=True)
+        labels = torch.cat([item[1] for item in batch])
+        frame_data = (frames, lengths)
+        return [frame_data, labels]
 
 class TimitDataModule(pl.LightningDataModule):
 
@@ -42,7 +36,7 @@ class TimitDataModule(pl.LightningDataModule):
         train_val_data = TimitDataset(train=True)
         train_val_count = len(train_val_data)
         val_percentage = 0.2
-        val_count = floor(train_val_count * val_percentage)
+        val_count = int(train_val_count * val_percentage)
         train_count = train_val_count - val_count
 
         self.train_ds, self.val_ds = random_split(train_val_data,
@@ -68,44 +62,13 @@ class TimitDataModule(pl.LightningDataModule):
                           **self.ds_args)
     
 
-class ClassificationModel(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.num_layers1 = 2
-        self.num_layers2 = 2
-        self.hidden_size1 = 128
-        self.hidden_size2 = 128
-        self.rnn1 = nn.RNN(SPECGRAM_N_MELS, self.hidden_size1, self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
-        self.rnn2 = nn.GRU(self.hidden_size1*2, self.hidden_size2, self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
-        self.fc = nn.Linear(self.hidden_size2*2, num_classes)
-
-    def forward(self, x, lengths):
-        predictions = torch.zeros(lengths.sum().item(), num_classes, device=CUDA0)
-        p = 0
-        for i in range(x.size(0)):
-            # feature extraction
-            # single frame passed as sequence into BiRNN (many-to-one)
-            h01 = torch.zeros(self.num_layers1*2, x.size(1), self.hidden_size1, device=CUDA0)
-            out, _ = self.rnn1(x[i], h01)
-            out = out[:, -1, :]
-            out2 = out.unsqueeze(0)
-            # frame classification
-            # features of all frames of an audiofile passed into BiGRU (many-to-many)
-            h02 = torch.zeros(self.num_layers2*2, 1, self.hidden_size2, device=CUDA0)
-            out2, _ = self.rnn2(out2, h02)
-            for j in range(lengths[i]):
-                predictions[p] = self.fc(out2[0][j])
-                p += 1
-        return predictions
-
-
 class PhonemeClassifier(pl.LightningModule):
 
     def __init__(self, batch_size, lr):
         super().__init__()
         self.batch_size = batch_size
         self.lr = lr
-        self.model = ClassificationModel()
+        self.model = Model(output_size=Phoneme.phoneme_count())
         self.criterion = nn.CrossEntropyLoss()
 
     def on_epoch_start(self):

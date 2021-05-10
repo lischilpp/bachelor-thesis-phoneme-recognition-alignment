@@ -1,6 +1,7 @@
 import torch
 from settings import *
 
+
 class TimitDataset(torch.utils.data.Dataset):
     
     def __init__(self, train):

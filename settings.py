@@ -1,6 +1,7 @@
 from pathlib import Path
 import torch
 
+
 TIMIT_PATH = Path('../../ML_DATA/timit')
 CHECKPOINT_PATH = Path('checkpoint.pt')
 SAVED_DATASET_PATH = Path('dataset')
