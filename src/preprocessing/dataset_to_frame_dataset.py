@@ -1,20 +1,6 @@
-from math import floor, ceil
-import csv
-import warnings
-# disable C++ extension warning
-warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
-import librosa
-import torch
-import torchaudio
-import torchaudio.transforms as T
-
-from settings import *
-from phonemes import Phoneme, get_phonemes_from_file
 
 
-class TimitDatasetGenerator(torch.utils.data.Dataset):
-    
-    def __init__(self, root, train, frame_length, stride):
+def __init__(self, root, train, frame_length, stride):
         super().__init__()
         self.root = root
         self.data = root / 'data'
@@ -76,7 +62,6 @@ class TimitDatasetGenerator(torch.utils.data.Dataset):
 
     def waveform_to_frames(self, waveform, n_samples):
         self.samples_per_frame = floor(self.samples_per_frame)
-        waveform_duration = n_samples / self.sampling_rate * 1000
         frames = []
         x = 0
         i = 0
@@ -95,7 +80,6 @@ class TimitDatasetGenerator(torch.utils.data.Dataset):
             hop_length=SPECGRAM_HOP_LENGTH
         )
 
-        n_frames = len(frames)
         specgrams = T.AmplitudeToDB()(mel_spectrogram_transform(frames)).transpose(1, 2)
 
         return specgrams
@@ -117,7 +101,3 @@ class TimitDatasetGenerator(torch.utils.data.Dataset):
         labels = self.get_labels_from_file(pn_path, n_samples)
     
         return specgrams, labels
-
-
-    def __len__(self):
-        return self.n_recordings

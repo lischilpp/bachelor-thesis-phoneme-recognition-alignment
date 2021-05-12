@@ -38,11 +38,11 @@ class Phoneme():
     def phoneme_count(cls):
         return len(cls.phoneme_list)
 
-
-def get_phonemes_from_file(path):
-    phonemes = []
-    with open(path) as pn_file:
-        reader = csv.reader(pn_file, delimiter=' ')
-        phonemes = [Phoneme(int(row[0]), int(row[1]), row[2])
-                    for row in reader]
-    return phonemes
+    @classmethod
+    def get_phonemes_from_file(cls, path):
+        phonemes = []
+        with open(path) as pn_file:
+            reader = csv.reader(pn_file, delimiter=' ')
+            phonemes = [Phoneme(int(row[0]), int(row[1]), row[2])
+                        for row in reader]
+        return phonemes
