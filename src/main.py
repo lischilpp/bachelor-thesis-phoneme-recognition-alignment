@@ -18,8 +18,8 @@ from model import Model
 
 num_epochs = 30
 batch_size = 16
-initial_lr = 0.01
-
+initial_lr = 0.001
+lr_patience = 0
 
 def collate_fn(batch):
     lengths = torch.tensor([item[0].size(0) for item in batch])
@@ -64,7 +64,7 @@ class PhonemeClassifier(pl.LightningModule):
         self.model = Model(output_size=Phoneme.phoneme_count())
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.initial_lr)
-        self.lr_scheduler = ReduceLROnPlateau(self.optimizer, patience=1)
+        self.lr_scheduler = ReduceLROnPlateau(self.optimizer, patience=lr_patience)
 
     def on_epoch_end(self):
         self.log('lr', self.optimizer.param_groups[0]['lr'], prog_bar=True)
@@ -82,19 +82,21 @@ class PhonemeClassifier(pl.LightningModule):
         (specgrams, lengths), labels = batch
         specgrams = specgrams
         labels = labels
-
         outputs = self.model(specgrams, lengths)
         loss = self.criterion(outputs, labels)
         acc = FM.accuracy(torch.argmax(outputs, dim=1), labels)
-
         metrics = {'val_loss': loss, 'val_acc': acc}
         self.log_dict(metrics, prog_bar=True)
         return metrics
 
-    def test_step(self, batch, batch_idx):
-        metrics = self.validation_step(batch, batch_idx)
-        metrics = {'test_loss': metrics['val_loss'],
-                   'test_acc': metrics['val_acc']}
+    def test_step(self, batch, _):
+        (specgrams, lengths), labels = batch
+        specgrams = specgrams
+        labels = labels
+        outputs = self.model(specgrams, lengths)
+        loss = self.criterion(outputs, labels)
+        acc = FM.accuracy(torch.argmax(outputs, dim=1), labels)
+        metrics = {'test_loss': loss, 'test_acc': acc}
         self.log_dict(metrics, prog_bar=True)
 
     def configure_optimizers(self):
@@ -114,7 +116,7 @@ if __name__ == '__main__':
     dm = TimitDataModule()
     
     model = PhonemeClassifier(batch_size, initial_lr)
-    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16) #, resume_from_checkpoint='lightning_logs/version_42/checkpoints/epoch=14-step=314.ckpt')
+    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16, stochastic_weight_avg=True) #, resume_from_checkpoint='lightning_logs/version_42/checkpoints/epoch=14-step=314.ckpt')
 
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)

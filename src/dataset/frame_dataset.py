@@ -75,8 +75,8 @@ class FrameDataset(torch.utils.data.Dataset):
         waveform = torch.tensor(waveform)
         # update phoneme boundaries
         for pn in phonemes:
-            pn.start = floor(pn.start / time_factor)
-            pn.stop  = floor(pn.stop  / time_factor)
+            pn.start = floor(pn.start * time_factor)
+            pn.stop  = floor(pn.stop  * time_factor)
         return waveform, phonemes
 
     def __getitem__(self, index):

@@ -12,8 +12,8 @@ class Model(nn.Module):
         self.num_layers2 = 2
         self.hidden_size1 = 128
         self.hidden_size2 = 128
-        self.rnn1 = nn.RNN(SPECGRAM_N_MELS, self.hidden_size1, self.num_layers1, batch_first=True, bidirectional=True, dropout=0.8)
-        self.rnn2 = nn.GRU(self.hidden_size1*2, self.hidden_size2, self.num_layers1, batch_first=True, bidirectional=True, dropout=0.8)
+        self.rnn1 = nn.RNN(SPECGRAM_N_MELS, self.hidden_size1, self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
+        self.rnn2 = nn.GRU(self.hidden_size1*2, self.hidden_size2, self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
         self.fc = nn.Linear(self.hidden_size2*2, self.output_size)
 
     def forward(self, batch, lengths):
