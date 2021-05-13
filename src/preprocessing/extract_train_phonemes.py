@@ -18,9 +18,9 @@ def phonemes_to_disk(ds):
     pn_indizes = {symbol : 0 for symbol in Phoneme.phoneme_list}
     for (waveform, phonemes) in ds:
         for pn in phonemes:
-            pn_waveform = waveform[pn.start : pn.stop].view(1,-1)
-            save_path = TRAIN_PHONEMES_PATH / pn.symbol / f'pn_{pn_indizes[pn.symbol]}.wav'
-            torchaudio.save(filepath=save_path, src=pn_waveform, sample_rate=SAMPLE_RATE)
+            pn_waveform = waveform[0][pn.start : pn.stop]
+            save_path = TRAIN_PHONEMES_PATH / pn.symbol / f'pn{pn_indizes[pn.symbol]}.wav'
+            torchaudio.save(filepath=save_path, src=pn_waveform.view(1,-1), sample_rate=SAMPLE_RATE)
             pn_indizes[pn.symbol] += 1
 
 

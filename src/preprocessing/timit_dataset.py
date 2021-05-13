@@ -46,10 +46,10 @@ class TimitDataset(torch.utils.data.Dataset):
         wav_path = self.data / f'{recording_path}.WAV'
         pn_path = self.data / f'{recording_path}.PHN'
         
-        waveform, sample_rate = torchaudio.load(wav_path)
+        waveform, old_sample_rate = torchaudio.load(wav_path)
         # convert to mono
         waveform = torch.mean(waveform, dim=0, keepdim=True)
-        waveform = self.resample(waveform[0], sample_rate)
+        waveform = self.resample(waveform, old_sample_rate)
 
         phonemes = Phoneme.get_phonemes_from_file(pn_path)
     

@@ -11,7 +11,7 @@ from preprocessing.timit_dataset import TimitDataset
 def dataset_to_disk(ds, save_path):
     if not save_path.exists():
         save_path.mkdir()
-    i = 1
+    i = 0
     for entry in ds:
         torch.save(entry, save_path / f'record{i}')
         i += 1
