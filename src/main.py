@@ -1,4 +1,5 @@
 import warnings
+
 # disable C++ extension warning
 warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 import torch.nn as nn
@@ -10,13 +11,14 @@ from pytorch_lightning.metrics import functional as FM
 
 from settings import *
 from phonemes import Phoneme
-from disk_dataset import DiskDataset
+from dataset.disk_dataset import DiskDataset
+from dataset.frame_dataset import FrameDataset
 from model import Model
 
 
 num_epochs = 30
 batch_size = 16
-initial_lr = 0.0001
+initial_lr = 0.01
 
 
 def collate_fn(batch):
@@ -30,9 +32,9 @@ def collate_fn(batch):
 class TimitDataModule(pl.LightningDataModule):
 
     def setup(self, stage):
-        self.train_ds = DiskDataset(TRAIN_AUGMENTED_FRAMES_PATH)
-        self.val_ds = DiskDataset(VAL_RAW_FRAMES_PATH)
-        self.test_ds = DiskDataset(TEST_RAW_FRAMES_PATH)
+        self.train_ds = FrameDataset(DiskDataset(TRAIN_RAW_PATH), augment=True)
+        self.val_ds   = FrameDataset(DiskDataset(VAL_RAW_PATH))
+        self.test_ds  = FrameDataset(DiskDataset(TEST_RAW_PATH))
 
         self.ds_args = {'batch_size': batch_size,
                         'collate_fn': collate_fn,
@@ -62,7 +64,7 @@ class PhonemeClassifier(pl.LightningModule):
         self.model = Model(output_size=Phoneme.phoneme_count())
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.initial_lr)
-        self.lr_scheduler = ReduceLROnPlateau(self.optimizer, patience=0)
+        self.lr_scheduler = ReduceLROnPlateau(self.optimizer, patience=1)
 
     def on_epoch_end(self):
         self.log('lr', self.optimizer.param_groups[0]['lr'], prog_bar=True)
