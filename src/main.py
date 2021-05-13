@@ -1,13 +1,9 @@
-import numpy as np
 import warnings
-
-from torch.optim import optimizer
-
 # disable C++ extension warning
 warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 import torch.nn as nn
 from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import pytorch_lightning as pl
 from pytorch_lightning.metrics import functional as FM
@@ -115,7 +111,7 @@ if __name__ == '__main__':
     dm = TimitDataModule()
     
     model = PhonemeClassifier(batch_size, initial_lr)
-    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16)#, resume_from_checkpoint='lightning_logs/version_42/checkpoints/epoch=14-step=314.ckpt')
+    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16) #, resume_from_checkpoint='lightning_logs/version_42/checkpoints/epoch=14-step=314.ckpt')
 
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)

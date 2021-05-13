@@ -51,9 +51,7 @@ class TimitDataset(torch.utils.data.Dataset):
         # resample
         waveform = self.resample(waveform, old_sample_rate)
         waveform = waveform[0]
-
         phonemes = Phoneme.get_phonemes_from_file(pn_path)
-    
         return waveform, phonemes
 
     def __len__(self):

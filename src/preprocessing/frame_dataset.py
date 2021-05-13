@@ -1,7 +1,5 @@
 from math import floor
-import csv
 import warnings
-from numpy import dtype
 # disable C++ extension warning
 warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 import torch
@@ -18,20 +16,7 @@ class FrameDataset(torch.utils.data.Dataset):
         self.root_ds = root_ds
         self.n_records = len(root_ds)
         self.samples_per_frame = SAMPLE_RATE / 1000 * FRAME_LENGTH     
-        self.samples_per_stride = SAMPLE_RATE / 1000 * STRIDE   
-
-    def get_recording_paths(self, root, train):
-        recording_paths = []
-        train_test_str = "TRAIN" if train else "TEST"
-        with open(root / f'{train_test_str.lower()}_data.csv') as file:
-            next(file)
-            for row in csv.reader(file, delimiter=','):
-                # is train/test data and audiofile
-                if row[1] == train_test_str and row[10] == 'TRUE':
-                    path = row[5]
-                    path_no_ext = path[0:path.index('.')]
-                    recording_paths.append(path_no_ext)
-        return recording_paths
+        self.samples_per_stride = SAMPLE_RATE / 1000 * STRIDE
 
     def get_frame_labels(self, phonemes, n_samples):
         labels = []
