@@ -1,6 +1,7 @@
 from math import floor
 import csv
 import warnings
+from numpy import dtype
 # disable C++ extension warning
 warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 import torch
@@ -70,8 +71,9 @@ class FrameDataset(torch.utils.data.Dataset):
         return specgrams
 
     def __getitem__(self, index):
-        waveform, phonemes, _ = self.root_ds[index]
+        waveform, phonemes = self.root_ds[index]
         n_samples = len(waveform)
+        waveform = waveform.float()
         frames = self.waveform_to_frames(waveform, n_samples)
         specgrams = self.frames_to_spectrograms(frames)
         labels = self.get_frame_labels(phonemes, n_samples)
