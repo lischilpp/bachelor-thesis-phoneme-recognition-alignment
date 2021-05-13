@@ -1,3 +1,4 @@
+from math import floor
 import torch
 from settings import *
 
@@ -18,7 +19,11 @@ class DiskDataset(torch.utils.data.Dataset):
 
     @classmethod
     def write(cls, ds, save_path):
+        n_records = len(ds)
         save_path.mkdir(exist_ok=True)
         for (i, entry) in enumerate(ds):
             torch.save(entry, save_path / f'record{i}')
+            if i % 100 == 0:
+                percent = floor(i / n_records * 100)
+                print(f'{percent}%')
     

@@ -16,7 +16,7 @@ from model import Model
 
 num_epochs = 30
 batch_size = 16
-initial_lr = 0.001
+initial_lr = 0.0001
 
 
 def collate_fn(batch):
@@ -62,7 +62,7 @@ class PhonemeClassifier(pl.LightningModule):
         self.model = Model(output_size=Phoneme.phoneme_count())
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.initial_lr)
-        self.lr_scheduler = ReduceLROnPlateau(self.optimizer, patience=1)
+        self.lr_scheduler = ReduceLROnPlateau(self.optimizer, patience=0)
 
     def on_epoch_end(self):
         self.log('lr', self.optimizer.param_groups[0]['lr'], prog_bar=True)
@@ -91,7 +91,8 @@ class PhonemeClassifier(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         metrics = self.validation_step(batch, batch_idx)
-        metrics = {'test_loss': metrics['val_loss'], 'test_acc': metrics['val_acc']}
+        metrics = {'test_loss': metrics['val_loss'],
+                   'test_acc': metrics['val_acc']}
         self.log_dict(metrics, prog_bar=True)
 
     def configure_optimizers(self):

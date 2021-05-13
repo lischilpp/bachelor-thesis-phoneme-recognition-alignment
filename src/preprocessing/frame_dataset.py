@@ -11,12 +11,13 @@ from phonemes import Phoneme
 
 class FrameDataset(torch.utils.data.Dataset):
     
-    def __init__(self, root_ds):
+    def __init__(self, root_ds, augment):
         super().__init__()
         self.root_ds = root_ds
         self.n_records = len(root_ds)
         self.samples_per_frame = SAMPLE_RATE / 1000 * FRAME_LENGTH     
         self.samples_per_stride = SAMPLE_RATE / 1000 * STRIDE
+        self.augment = augment
 
     def get_frame_labels(self, phonemes, n_samples):
         labels = []
@@ -61,6 +62,7 @@ class FrameDataset(torch.utils.data.Dataset):
         waveform = waveform.float()
         frames = self.waveform_to_frames(waveform, n_samples)
         specgrams = self.frames_to_spectrograms(frames)
+        specgrams = T.TimeStretch()(specgrams, 3)
         labels = self.get_frame_labels(phonemes, n_samples)
         return specgrams, labels
 
