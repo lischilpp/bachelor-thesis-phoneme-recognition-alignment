@@ -13,6 +13,7 @@ import numpy as np, numpy.random
 import matplotlib.pyplot as plt
 
 from settings import *
+from phonemes import Phoneme
 
 n_fft = 400
 specgram_height = n_fft // 2 + 1
@@ -65,15 +66,28 @@ def sentences_to_phoneme_lists(sentences, word_to_phonemes):
     return phon_list_sentences
 
 def get_phoneme_file_counts():
+    TRAIN_PHONEMES_PATH
     phoneme_file_counts = {}
-    for path in TRAIN_PHONEMES_PATH.glob('*'):
-        if path.is_dir():
-            phoneme_file_counts[path.name] = sum(1 for x in path.glob('*') if x.is_file())
+    for speaker_path in TRAIN_PHONEMES_PATH.glob('*'):
+        if not speaker_path.is_dir(): continue
+        speaker_id = speaker_path.name
+        if not speaker_id in phoneme_file_counts:
+            phoneme_file_counts[speaker_id] = {}
+        for phoneme_path in speaker_path.glob('*'):
+            if not phoneme_path.is_dir(): continue
+            phoneme_symbol = phoneme_path.name
+            phoneme_file_counts[speaker_id][phoneme_symbol] = sum(1 for x in phoneme_path.glob('*') if x.is_file())
     return phoneme_file_counts
 
-def get_random_phoneme_waveform(pn, phoneme_file_counts):
-    i = randrange(phoneme_file_counts[pn])
-    wav_path = TRAIN_PHONEMES_PATH / pn / f'pn{i}.wav'
+def get_random_sentence(sentences, len_sentences):
+    return sentences[randrange(len_sentences)]
+
+def get_random_speaker_id(speaker_ids, speaker_count):
+    return speaker_ids[randrange(speaker_count)]
+
+def get_random_phoneme_waveform(speaker_id, pn, phoneme_file_counts):
+    i = randrange(phoneme_file_counts[speaker_id][pn])
+    wav_path = str(TRAIN_PHONEMES_PATH / speaker_id / pn / f'pn{i}.wav')
     waveform, _ = torchaudio.load(wav_path)
     waveform = waveform[0]
     return waveform
@@ -101,39 +115,32 @@ def normalize_duration(waveform):
 
 TRAIN_AUGMENTED_PATH.mkdir(exist_ok=True)
 
-# sentences = get_sentences()
-# word_to_phonemes = create_word_to_phonemes_dict()
-# phon_list_sentences = sentences_to_phoneme_lists(sentences, word_to_phonemes)
-# phoneme_file_counts = get_phoneme_file_counts()
+sentences = get_sentences()
+word_to_phonemes = create_word_to_phonemes_dict()
+phon_list_sentences = sentences_to_phoneme_lists(sentences, word_to_phonemes)
+phoneme_file_counts = get_phoneme_file_counts()
+speaker_ids = list(phoneme_file_counts.keys())
+speaker_count = len(speaker_ids)
 
-# # i = 0
-# for sentence in phon_list_sentences:
-#     merged_specgrams = []
-#     for pn in sentence:
-#         pn_specgrams = np.zeros((AUGMENT_LERP_N_SAMPLES, specgram_height, specgram_width))
-#         for i in range(AUGMENT_LERP_N_SAMPLES):
-#             pn_waveform = get_random_phoneme_waveform(pn, phoneme_file_counts)
-#             pn_waveform = normalize_duration(pn_waveform)
-#             pn_specgrams[i] = waveform_to_spectrogram(pn_waveform, specgram_width)
-#         specgram = random_lerp(pn_specgrams)
-#         merged_specgrams.append(specgram)
-#     full_specgram = np.sum(merged_specgrams)
-#     print(full_specgram.shape)
-#     exit()
-    
-    # waveform = torch.cat(pn_waveforms, 0).view(1,-1)
-    # torchaudio.save(filepath=TRAIN_AUGMENTED_PATH / f'test_{i}.wav', src=waveform, sample_rate=SAMPLE_RATE)
-    # if i > 10:
-    #     break
-    # i += 1
-
-# waveform, _ = torch.load(TRAIN_RAW_PATH / 'record0')
-# n_samples = waveform.size(1)
-# torchaudio.save(filepath=TRAIN_AUGMENTED_PATH / f'test1.wav', src=waveform, sample_rate=SAMPLE_RATE)
-# waveform = librosa.resample(waveform[0].numpy(), SAMPLE_RATE, n_samples / 10 * 2)
-# waveform = torch.from_numpy(waveform)
-# torchaudio.save(filepath=TRAIN_AUGMENTED_PATH / f'test2.wav', src=waveform.view(1,-1), sample_rate=SAMPLE_RATE)
-y, _ = torch.load(TRAIN_RAW_PATH / 'record0')
-y_stretch = pyrb.time_stretch(y[0].numpy(), SAMPLE_RATE, 0.5)
-y_stretch = torch.tensor(y_stretch)
-torchaudio.save(filepath=str(TRAIN_AUGMENTED_PATH / f'test1.wav'), src=y_stretch.view(1,-1), sample_rate=SAMPLE_RATE)
+n_sentences = len(phon_list_sentences)
+for i in range(AUGMENT_TOTAL_RECORDS):
+    speaker_id = get_random_speaker_id(speaker_ids, speaker_count)
+    cannot_speak_sentence = True
+    while cannot_speak_sentence:
+        sentence = get_random_sentence(phon_list_sentences, n_sentences)
+        cannot_speak_sentence = False
+        for symbol in sentence:
+            if not symbol in phoneme_file_counts[speaker_id]:
+                cannot_speak_sentence=True
+    sentence_phonemes = []
+    pn_waveforms = []
+    sample_idx = 0
+    for symbol in sentence:
+        pn_waveform = get_random_phoneme_waveform(speaker_id, symbol, phoneme_file_counts)
+        pn_samples = pn_waveform.size(0)
+        sentence_phonemes.append(Phoneme(sample_idx, sample_idx + pn_samples, symbol))
+        pn_waveforms.append(pn_waveform)
+        sample_idx += pn_samples
+    waveform = torch.cat(pn_waveforms, 0)
+    entry = (waveform, sentence_phonemes, speaker_id)
+    torch.save(entry, TRAIN_AUGMENTED_PATH / f'record{i}')

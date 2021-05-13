@@ -2,6 +2,7 @@ import numpy as np
 import warnings
 
 from torch.optim import optimizer
+
 # disable C++ extension warning
 warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 import torch.nn as nn
@@ -12,8 +13,8 @@ import pytorch_lightning as pl
 from pytorch_lightning.metrics import functional as FM
 
 from settings import *
-from dataset import TimitDataset
 from phonemes import Phoneme
+from disk_dataset import DiskDataset
 from model import Model
 
 
@@ -33,15 +34,9 @@ def collate_fn(batch):
 class TimitDataModule(pl.LightningDataModule):
 
     def setup(self, stage):
-        train_val_data = TimitDataset(train=True)
-        train_val_count = len(train_val_data)
-        val_percentage = 0.2
-        val_count = int(train_val_count * val_percentage)
-        train_count = train_val_count - val_count
-
-        self.train_ds, self.val_ds = random_split(train_val_data,
-                                                 [train_count, val_count])
-        self.test_ds = TimitDataset(train=False)
+        self.train_ds = DiskDataset(TRAIN_AUGMENTED_FRAMES_PATH)
+        self.val_ds = DiskDataset(VAL_RAW_FRAMES_PATH)
+        self.test_ds = DiskDataset(TEST_RAW_FRAMES_PATH)
 
         self.ds_args = {'batch_size': batch_size,
                         'collate_fn': collate_fn,
