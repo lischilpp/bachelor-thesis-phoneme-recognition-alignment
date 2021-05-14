@@ -16,15 +16,15 @@ train_ds, val_ds = random_split(train_val_ds, [train_count, val_count])
 test_ds = TimitDataset(test=True)
 
 print('processing train dataset...')
-TRAIN_RAW_PATH.mkdir(exist_ok=True, parents=True)
-DiskDataset.write(train_ds, TRAIN_RAW_PATH)
+TRAIN_PATH.mkdir(exist_ok=True, parents=True)
+DiskDataset.write(train_ds, TRAIN_PATH)
 
 print('processing val dataset...')
-VAL_RAW_PATH.mkdir(exist_ok=True, parents=True)
-DiskDataset.write(val_ds, VAL_RAW_PATH)
+VAL_PATH.mkdir(exist_ok=True, parents=True)
+DiskDataset.write(val_ds, VAL_PATH)
 
 print('processing test dataset...')
-TEST_RAW_PATH.mkdir(exist_ok=True, parents=True)
-DiskDataset.write(test_ds, TEST_RAW_PATH)
+TEST_PATH.mkdir(exist_ok=True, parents=True)
+DiskDataset.write(test_ds, TEST_PATH)
 
 print('--- DONE ---')

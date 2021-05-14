@@ -32,9 +32,9 @@ def collate_fn(batch):
 class TimitDataModule(pl.LightningDataModule):
 
     def setup(self, stage):
-        self.train_ds = FrameDataset(DiskDataset(TRAIN_RAW_PATH), augment=True)
-        self.val_ds   = FrameDataset(DiskDataset(VAL_RAW_PATH))
-        self.test_ds  = FrameDataset(DiskDataset(TEST_RAW_PATH))
+        self.train_ds = FrameDataset(DiskDataset(TRAIN_PATH), augment=True)
+        self.val_ds   = FrameDataset(DiskDataset(VAL_PATH))
+        self.test_ds  = FrameDataset(DiskDataset(TEST_PATH))
 
         self.ds_args = {'batch_size': batch_size,
                         'collate_fn': collate_fn,
