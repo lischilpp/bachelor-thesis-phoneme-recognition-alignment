@@ -1,25 +1,25 @@
+from model import Model
+from dataset.frame_dataset import FrameDataset
+from dataset.disk_dataset import DiskDataset
+from phonemes import Phoneme
+from settings import *
+from pytorch_lightning.metrics import functional as FM
+import pytorch_lightning as pl
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.utils.data import DataLoader
+from torch.nn.utils.rnn import pad_sequence
+import torch.nn as nn
 import warnings
 
 # disable C++ extension warning
 warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
-import torch.nn as nn
-from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import ReduceLROnPlateau
-import pytorch_lightning as pl
-from pytorch_lightning.metrics import functional as FM
-
-from settings import *
-from phonemes import Phoneme
-from dataset.disk_dataset import DiskDataset
-from dataset.frame_dataset import FrameDataset
-from model import Model
 
 
 num_epochs = 30
 batch_size = 16
 initial_lr = 0.001
 lr_patience = 0
+
 
 def collate_fn(batch):
     lengths = torch.tensor([item[0].size(0) for item in batch])
@@ -29,16 +29,17 @@ def collate_fn(batch):
     frame_data = (frames, lengths)
     return [frame_data, labels]
 
+
 class TimitDataModule(pl.LightningDataModule):
 
     def setup(self, stage):
         self.train_ds = FrameDataset(DiskDataset(TRAIN_PATH), augment=True)
-        self.val_ds   = FrameDataset(DiskDataset(VAL_PATH))
-        self.test_ds  = FrameDataset(DiskDataset(TEST_PATH))
+        self.val_ds = FrameDataset(DiskDataset(VAL_PATH))
+        self.test_ds = FrameDataset(DiskDataset(TEST_PATH))
 
         self.ds_args = {'batch_size': batch_size,
                         'collate_fn': collate_fn,
-                        'num_workers': 6,
+                        'num_workers': 12,
                         'pin_memory': True}
 
     def train_dataloader(self):
@@ -53,7 +54,7 @@ class TimitDataModule(pl.LightningDataModule):
     def test_dataloader(self):
         return DataLoader(dataset=self.test_ds,
                           **self.ds_args)
-    
+
 
 class PhonemeClassifier(pl.LightningModule):
 
@@ -63,12 +64,14 @@ class PhonemeClassifier(pl.LightningModule):
         self.initial_lr = initial_lr
         self.model = Model(output_size=Phoneme.phoneme_count())
         self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.initial_lr)
-        self.lr_scheduler = ReduceLROnPlateau(self.optimizer, patience=lr_patience)
+        self.optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.initial_lr)
+        self.lr_scheduler = ReduceLROnPlateau(
+            self.optimizer, patience=lr_patience)
 
     def on_epoch_end(self):
         self.log('lr', self.optimizer.param_groups[0]['lr'], prog_bar=True)
-    
+
     def training_step(self, batch, _):
         (specgrams, lengths), labels = batch
 
@@ -114,9 +117,11 @@ class PhonemeClassifier(pl.LightningModule):
 
 if __name__ == '__main__':
     dm = TimitDataModule()
-    
+
     model = PhonemeClassifier(batch_size, initial_lr)
-    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16, stochastic_weight_avg=True) #, resume_from_checkpoint='lightning_logs/version_42/checkpoints/epoch=14-step=314.ckpt')
+    # resume_from_checkpoint='lightning_logs/version_42/checkpoints/epoch=14-step=314.ckpt')
+    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs,
+                         precision=16, stochastic_weight_avg=True)
 
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)

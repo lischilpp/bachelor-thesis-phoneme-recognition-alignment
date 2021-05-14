@@ -1,30 +1,24 @@
+import torchaudio.transforms as T
+from torchaudio.sox_effects import apply_effects_tensor
+from phonemes import Phoneme
+from settings import *
+import torch
+import random
 from math import floor
 import warnings
 # disable C++ extension warning
 warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
-import random
-import torch
-import torchaudio.transforms as T
-from audiomentations import Compose, AddGaussianNoise, TimeStretch, PitchShift
-
-from settings import *
-from phonemes import Phoneme
 
 
 class FrameDataset(torch.utils.data.Dataset):
-    
+
     def __init__(self, root_ds, augment=False):
         super().__init__()
         self.root_ds = root_ds
         self.n_records = len(root_ds)
-        self.samples_per_frame = SAMPLE_RATE / 1000 * FRAME_LENGTH     
+        self.samples_per_frame = SAMPLE_RATE / 1000 * FRAME_LENGTH
         self.samples_per_stride = SAMPLE_RATE / 1000 * STRIDE
         self.augment = augment
-        if augment:
-            self.augment_transform = Compose([
-                AddGaussianNoise(min_amplitude=0.001, max_amplitude=0.015, p=0.5),
-                PitchShift(min_semitones=-4, max_semitones=4, p=1),
-            ])
 
     def get_frame_labels(self, phonemes, n_samples):
         labels = []
@@ -34,7 +28,7 @@ class FrameDataset(torch.utils.data.Dataset):
             sample_idx = floor(x)
             phon = phonemes[phon_idx]
             if phon.stop - sample_idx < 0.5 * self.samples_per_frame and \
-            phon_idx < len(phonemes) - 1:
+                    phon_idx < len(phonemes) - 1:
                 phon_idx += 1
                 phon = phonemes[phon_idx]
 
@@ -49,7 +43,7 @@ class FrameDataset(torch.utils.data.Dataset):
         i = 0
         while x + self.samples_per_frame < n_samples:
             idx = floor(x)
-            frames.append(waveform[idx : idx + self.samples_per_frame])
+            frames.append(waveform[idx: idx + self.samples_per_frame])
             x += self.samples_per_stride
             i += 1
         return torch.stack(frames)
@@ -65,18 +59,21 @@ class FrameDataset(torch.utils.data.Dataset):
 
     def random_augment(self, record):
         waveform, phonemes = record
-        time_factor = random.uniform(0.8, 1.25)
-        augment = Compose([
-            AddGaussianNoise(min_amplitude=0.001, max_amplitude=0.015, p=0.5),
-            PitchShift(min_semitones=-4, max_semitones=4, p=1),
-        ])
-        waveform = augment(samples=waveform.numpy(), sample_rate=SAMPLE_RATE)
-        TimeStretch(min_rate=time_factor, max_rate=time_factor, p=1)(waveform, SAMPLE_RATE)
-        waveform = torch.tensor(waveform)
+        speed_factor = random.uniform(0.8, 1.25)
+        pitch_factor = random.uniform(-4, 4)  # 4 semitones
+        effects = [
+            ['remix', '-'],  # merge all the channels
+            ['tempo', str(speed_factor)],
+            ['pitch', str(pitch_factor * 100)],
+            ['rate', f'{SAMPLE_RATE}'],
+        ]
+        waveform, _ = apply_effects_tensor(
+            waveform.reshape(1, -1), SAMPLE_RATE, effects, channels_first=True)
+        waveform = waveform[0]
         # update phoneme boundaries
         for pn in phonemes:
-            pn.start = floor(pn.start * time_factor)
-            pn.stop  = floor(pn.stop  * time_factor)
+            pn.start = floor(pn.start / speed_factor)
+            pn.stop = floor(pn.stop / speed_factor)
         return waveform, phonemes
 
     def __getitem__(self, index):
@@ -85,7 +82,6 @@ class FrameDataset(torch.utils.data.Dataset):
             record = self.random_augment(record)
         waveform, phonemes = record
         n_samples = len(waveform)
-        waveform = waveform.float()
         frames = self.waveform_to_frames(waveform, n_samples)
         specgrams = self.frames_to_spectrograms(frames)
         labels = self.get_frame_labels(phonemes, n_samples)

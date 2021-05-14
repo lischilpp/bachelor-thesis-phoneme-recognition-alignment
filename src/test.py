@@ -2,19 +2,30 @@
 
 from dataset.frame_dataset import FrameDataset
 from dataset.disk_dataset import DiskDataset
-from settings import TRAIN_RAW_PATH
-import librosa
 import torchaudio
+from torchaudio.sox_effects import apply_effects_tensor
 
 from settings import *
 
-TRAIN_AUGMENTED_PATH.mkdir(exist_ok=True)
 
-ds = DiskDataset(TRAIN_RAW_PATH)
+ds = DiskDataset(TRAIN_PATH)
 waveform, labels = ds[0]
 
+# torchaudio.save(filepath=str(DATA_PATH / f'test.wav'),
+#                 src=waveform.view(1, -1), sample_rate=SAMPLE_RATE)
 
-torchaudio.save(filepath=str(TRAIN_AUGMENTED_PATH / f'test.wav'), src=waveform.view(1,-1), sample_rate=SAMPLE_RATE)
+# print(torchaudio.sox_effects.effect_names())
+# effects = [['remix', '-'],
+#            ['rate', f'{SAMPLE_RATE}'], ['speed', f'{2:.5f}']]
 
-waveform = librosa.effects.time_stretch(waveform.numpy(), 1.1)
-torchaudio.save(filepath=str(TRAIN_AUGMENTED_PATH / f'test_x.wav'), src=torch.from_numpy(waveform).view(1,-1), sample_rate=SAMPLE_RATE)
+effects = [
+    ['remix', '-'],  # merge all the channels
+    ['tempo', str(1.5)],
+    ['pitch', str(-500)],
+    ['rate', f'{SAMPLE_RATE}'],
+]
+waveform, _ = apply_effects_tensor(
+    waveform.reshape(1, -1), SAMPLE_RATE, effects, channels_first=True)
+
+torchaudio.save(filepath=str(DATA_PATH / f'test_x.wav'),
+                src=waveform, sample_rate=SAMPLE_RATE)
