@@ -58,6 +58,8 @@ class FrameDataset(torch.utils.data.Dataset):
         return specgrams
 
     def random_augment(self, record):
+        if random.random() < 0.9:
+            return record
         waveform, phonemes = record
         speed_factor = random.uniform(0.8, 1.25)
         pitch_factor = random.uniform(-4, 4)  # 4 semitones
@@ -84,6 +86,8 @@ class FrameDataset(torch.utils.data.Dataset):
         n_samples = len(waveform)
         frames = self.waveform_to_frames(waveform, n_samples)
         specgrams = self.frames_to_spectrograms(frames)
+        print(specgrams.shape)
+        exit()
         labels = self.get_frame_labels(phonemes, n_samples)
         return specgrams, labels
 
