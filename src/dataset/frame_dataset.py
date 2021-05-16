@@ -91,11 +91,11 @@ class FrameDataset(torch.utils.data.Dataset):
             record = self.random_augment(record)
         waveform, phonemes = record
         n_samples = len(waveform)
-        # frames = self.waveform_to_frames(waveform, n_samples)
-        # specgrams = self.frames_to_spectrograms(frames)
-        specgram = self.waveform_to_spectrogram(waveform)
+        frames = self.waveform_to_frames(waveform, n_samples)
+        specgrams = self.frames_to_spectrograms(frames)
+        # specgram = self.waveform_to_spectrogram(waveform)
         labels = self.get_frame_labels(phonemes, n_samples)
-        return specgram, labels
+        return specgrams, labels
 
     def __len__(self):
         return self.n_records

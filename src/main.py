@@ -16,7 +16,7 @@ warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 
 
 num_epochs = 30
-batch_size = 16
+batch_size = 8
 initial_lr = 0.001
 lr_patience = 0
 lr_reduce_factor = 0.1
@@ -40,8 +40,8 @@ class TimitDataModule(pl.LightningDataModule):
 
         self.ds_args = {'batch_size': batch_size,
                         'collate_fn': collate_fn,
-                        'num_workers': 12,
-                        'pin_memory': True}
+                        'num_workers': 0,
+                        'pin_memory': False}
 
     def train_dataloader(self):
         return DataLoader(dataset=self.train_ds,
@@ -87,6 +87,8 @@ class PhonemeClassifier(pl.LightningModule):
         specgrams = specgrams
         labels = labels
         outputs = self.model(specgrams, lengths)
+        # print(outputs.shape)
+        # print(labels.shape)
         loss = self.criterion(outputs, labels)
         acc = FM.accuracy(torch.argmax(outputs, dim=1), labels)
         metrics = {'val_loss': loss, 'val_acc': acc}
@@ -121,7 +123,7 @@ if __name__ == '__main__':
 
     model = PhonemeClassifier(batch_size, initial_lr)
     # resume_from_checkpoint='lightning_logs/version_42/checkpoints/epoch=14-step=314.ckpt')
-    trainer = pl.Trainer(gpus=0, max_epochs=num_epochs,
+    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs,
                          stochastic_weight_avg=True)  # precision=16,
 
     trainer.fit(model, dm)

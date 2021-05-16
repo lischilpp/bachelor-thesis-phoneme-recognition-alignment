@@ -1,67 +1,57 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from settings import *
-
-
-class DynamicKernel():
-    def __init__(self, func, width, height, padding=0):
-        self.func = func
-        self.width = width
-        self.height = height
-        self.padding = nn.ZeroPad2d(padding)
-
-    def apply(self, input):
-        print(input.shape)
-        print(self.padding(input).unfold(0, self.height, self.height).shape)
-        rows = self.padding(input).unfold(0, self.height, self.height).unfold(
-            1, self.width, self.width)
-        print(rows.shape)
-        out = torch.tensor([[self.func(e) for e in row]
-                           for row in rows], device=CUDA0)
-        return out
 
 
 class CNNModel(nn.Module):
     def __init__(self, output_size):
         super().__init__()
-        self.nns8 = [nn.Linear(8*8, 2*2) for _ in range(8)]
-        self.kernels8 = [DynamicKernel(
-            self.nns8[i], 8, 8) for i in range(8)]
-        self.nns16 = [nn.Linear(16*16, 4*4) for _ in range(4)]
-        self.kernels16 = [DynamicKernel(
-            self.nns16[i], 16, 16) for i in range(4)]
-        self.nns32 = [nn.Linear(32*32, 8*8) for _ in range(2)]
-        self.kernels32 = [DynamicKernel(
-            self.nns32[i], 32, 32) for i in range(2)]
-        self.nn64 = nn.Linear(64*64, 16*16)
-        self.kernel64 = DynamicKernel(self.nn64, 64, 64)
         self.output_size = output_size
-        self.fc = nn.Linear(64 + 480, output_size)
 
-    def forward(self, batch, lengths):
+        self.c1 = nn.Conv2d(1, 8, kernel_size=2, stride=1)
+        self.c2 = nn.Conv2d(8, 16, kernel_size=3, stride=1)
+        self.c3 = nn.Conv2d(16, 4, kernel_size=3, stride=1)
+        self.bn1 = nn.BatchNorm2d(8)
+        self.bn2 = nn.BatchNorm2d(16)
+        self.dropout1 = nn.Dropout(0.25)
+        self.dropout2 = nn.Dropout(0.5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.fc1 = nn.Linear(4*9*28, 128)
+
+        self.num_layers = 2
+        self.hidden_size = 256
+        self.rnn_input_size = 128
+        self.rnn2 = nn.GRU(input_size=self.rnn_input_size, hidden_size=self.hidden_size,
+                           num_layers=self.num_layers, bidirectional=True, dropout=0.5)
+        self.fc = nn.Linear(self.hidden_size*2, self.output_size)
+
+    def forward(self, x, lengths):
+        batch_size = x.size(0)
+        seq_len = x.size(1)
+        p = 0
+        x = x.view(x.size(0)*x.size(1), 1, x.size(2), x.size(3))
+        x = F.relu(self.bn1(self.c1(x)))
+        x = F.relu(self.bn2(self.c2(x)))
+        x = F.max_pool2d(x, 2)
+        x = F.relu(self.c3(x))
+        x = x.view(x.size(0), -1)
+        x = self.fc1(x)
+
         predictions = torch.zeros(
             lengths.sum().item(), self.output_size, device=CUDA0)
-        p = 0
-        for i in range(batch.size(0)):
-            x = batch[i]
 
-            self.fms8 = [kernel.apply(x[i:i+8])
-                         for i, kernel in enumerate(self.kernels8)]
-            self.fms16 = [kernel.apply(x[i:i+16])
-                          for i, kernel in enumerate(self.kernels16)]
-            self.fms32 = [kernel.apply(x[i:i+32])
-                          for i, kernel in enumerate(self.kernels32)]
-            self.fm64 = self.kernel64.apply(x)
-
-            self.features = torch.cat(self.fms8.flatten(),
-                                      self.fms16.flatten(),
-                                      self.fms32.flatten(),
-                                      self.fms64.flatten())
-
-            x = x.transpose(0, 1)
+        k = 0
+        for i in range(batch_size):
+            y = x[k:k+lengths[i]]
+            y = y.view(y.size(0), 1, y.size(1))
+            h0 = torch.zeros(self.num_layers*2, 1,
+                             self.hidden_size, device=CUDA0)
+            out, _ = self.rnn2(y, h0)
             for j in range(lengths[i]):
-                predictions[p] = self.fc(
-                    torch.cat(x[i].flatten(), self.features))
+                predictions[p] = self.fc(out[j][0])
                 p += 1
+            k += seq_len
+
         return predictions
