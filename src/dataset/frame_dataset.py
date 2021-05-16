@@ -36,6 +36,15 @@ class FrameDataset(torch.utils.data.Dataset):
             x += self.samples_per_stride
         return torch.tensor(labels)
 
+    def frames_to_spectrograms(self, frames):
+        mel_spectrogram_transform = T.MelSpectrogram(
+            sample_rate=SAMPLE_RATE,
+            n_mels=SPECGRAM_N_MELS,
+            hop_length=SPECGRAM_HOP_LENGTH
+        )
+        specgrams = T.AmplitudeToDB()(mel_spectrogram_transform(frames)).transpose(1, 2)
+        return specgrams
+
     def waveform_to_frames(self, waveform, n_samples):
         self.samples_per_frame = floor(self.samples_per_frame)
         frames = []
@@ -48,23 +57,12 @@ class FrameDataset(torch.utils.data.Dataset):
             i += 1
         return torch.stack(frames)
 
-    def frames_to_spectrograms(self, frames):
-        mel_spectrogram_transform = T.MelSpectrogram(
-            sample_rate=SAMPLE_RATE,
-            n_mels=SPECGRAM_N_MELS,
-            hop_length=SPECGRAM_HOP_LENGTH
-        )
-        specgrams = T.AmplitudeToDB()(mel_spectrogram_transform(frames)).transpose(1, 2)
-        return specgrams
-
     def random_augment(self, record):
-        if random.random() < 0.9:
-            return record
         waveform, phonemes = record
         speed_factor = random.uniform(0.8, 1.25)
         pitch_factor = random.uniform(-4, 4)  # 4 semitones
         effects = [
-            ['remix', '-'],  # merge all the channels
+            ['remix', '-'],  # merge all channels
             ['tempo', str(speed_factor)],
             ['pitch', str(pitch_factor * 100)],
             ['rate', f'{SAMPLE_RATE}'],
@@ -78,18 +76,26 @@ class FrameDataset(torch.utils.data.Dataset):
             pn.stop = floor(pn.stop / speed_factor)
         return waveform, phonemes
 
+    def waveform_to_spectrogram(self, waveform):
+        mel_spectrogram_transform = T.MelSpectrogram(
+            sample_rate=SAMPLE_RATE,
+            n_mels=SPECGRAM_N_MELS,
+            hop_length=SPECGRAM_HOP_LENGTH
+        )
+        specgram = T.AmplitudeToDB()(mel_spectrogram_transform(waveform)).transpose(0, 1)
+        return specgram
+
     def __getitem__(self, index):
         record = self.root_ds[index]
         if self.augment:
             record = self.random_augment(record)
         waveform, phonemes = record
         n_samples = len(waveform)
-        frames = self.waveform_to_frames(waveform, n_samples)
-        specgrams = self.frames_to_spectrograms(frames)
-        print(specgrams.shape)
-        exit()
+        # frames = self.waveform_to_frames(waveform, n_samples)
+        # specgrams = self.frames_to_spectrograms(frames)
+        specgram = self.waveform_to_spectrogram(waveform)
         labels = self.get_frame_labels(phonemes, n_samples)
-        return specgrams, labels
+        return specgram, labels
 
     def __len__(self):
         return self.n_records

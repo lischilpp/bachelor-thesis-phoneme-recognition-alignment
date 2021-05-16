@@ -4,18 +4,18 @@ import torch.nn as nn
 from settings import *
 
 
-class Model(nn.Module):
+class RNNModel(nn.Module):
     def __init__(self, output_size):
         super().__init__()
         self.output_size = output_size
         self.num_layers1 = 2
         self.num_layers2 = 2
-        self.hidden_size1 = 128
-        self.hidden_size2 = 128
+        self.hidden_size1 = 256
+        self.hidden_size2 = 256
         self.rnn1 = nn.RNN(SPECGRAM_N_MELS, self.hidden_size1,
-                           self.num_layers1, batch_first=True, bidirectional=True, dropout=0.2)
+                           self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
         self.rnn2 = nn.GRU(self.hidden_size1*2, self.hidden_size2,
-                           self.num_layers1, batch_first=True, bidirectional=True, dropout=0.2)
+                           self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
         self.fc = nn.Linear(self.hidden_size2*2, self.output_size)
 
     def forward(self, batch, lengths):
@@ -32,7 +32,7 @@ class Model(nn.Module):
             out2 = out.unsqueeze(0)
             # frame classification
             # features of all frames of an audiofile passed into BiGRU (many-to-many)
-            h02 = torch.zeros(self.num_layers2*2, 1,
+            h02 = torch.zeros(self.num_layers2*self.num_layers1, 1,
                               self.hidden_size2, device=CUDA0)
             out2, _ = self.rnn2(out2, h02)
             for j in range(lengths[i]):

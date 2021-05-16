@@ -1,4 +1,4 @@
-from model import Model
+from cnn_model import CNNModel
 from dataset.frame_dataset import FrameDataset
 from dataset.disk_dataset import DiskDataset
 from phonemes import Phoneme
@@ -16,9 +16,10 @@ warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 
 
 num_epochs = 30
-batch_size = 8
-initial_lr = 0.01
+batch_size = 16
+initial_lr = 0.001
 lr_patience = 0
+lr_reduce_factor = 0.1
 
 
 def collate_fn(batch):
@@ -62,12 +63,12 @@ class PhonemeClassifier(pl.LightningModule):
         super().__init__()
         self.batch_size = batch_size
         self.lr = initial_lr
-        self.model = Model(output_size=Phoneme.phoneme_count())
+        self.model = CNNModel(output_size=Phoneme.phoneme_count())
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.lr)
         self.lr_scheduler = ReduceLROnPlateau(
-            self.optimizer, patience=lr_patience)
+            self.optimizer, factor=lr_reduce_factor, patience=lr_patience)
 
     def on_epoch_end(self):
         self.log('lr', self.optimizer.param_groups[0]['lr'], prog_bar=True)
@@ -120,8 +121,8 @@ if __name__ == '__main__':
 
     model = PhonemeClassifier(batch_size, initial_lr)
     # resume_from_checkpoint='lightning_logs/version_42/checkpoints/epoch=14-step=314.ckpt')
-    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs,
-                         precision=16)
+    trainer = pl.Trainer(gpus=0, max_epochs=num_epochs,
+                         stochastic_weight_avg=True)  # precision=16,
 
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)
