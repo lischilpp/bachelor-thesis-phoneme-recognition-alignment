@@ -16,7 +16,7 @@ warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 
 
 num_epochs = 30
-batch_size = 8
+batch_size = 16
 initial_lr = 0.001
 lr_patience = 0
 lr_reduce_factor = 0.1
@@ -40,8 +40,8 @@ class TimitDataModule(pl.LightningDataModule):
 
         self.ds_args = {'batch_size': batch_size,
                         'collate_fn': collate_fn,
-                        'num_workers': 0,
-                        'pin_memory': False}
+                        'num_workers': 12,
+                        'pin_memory': True}
 
     def train_dataloader(self):
         return DataLoader(dataset=self.train_ds,
