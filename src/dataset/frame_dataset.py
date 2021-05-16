@@ -42,7 +42,7 @@ class FrameDataset(torch.utils.data.Dataset):
             n_mels=SPECGRAM_N_MELS,
             hop_length=SPECGRAM_HOP_LENGTH
         )
-        specgrams = T.AmplitudeToDB()(mel_spectrogram_transform(frames)).transpose(1, 2)
+        specgrams = T.AmplitudeToDB()(mel_spectrogram_transform(frames))
         return specgrams
 
     def waveform_to_frames(self, waveform, n_samples):
@@ -59,8 +59,8 @@ class FrameDataset(torch.utils.data.Dataset):
 
     def random_augment(self, record):
         waveform, phonemes = record
-        speed_factor = random.uniform(0.8, 1.25)
-        pitch_factor = random.uniform(-4, 4)  # 4 semitones
+        speed_factor = random.uniform(0.25, 2)
+        pitch_factor = random.uniform(-11, 11)  # 4 semitones
         effects = [
             ['remix', '-'],  # merge all channels
             ['tempo', str(speed_factor)],

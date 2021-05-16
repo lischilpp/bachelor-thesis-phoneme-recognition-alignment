@@ -19,7 +19,7 @@ num_epochs = 30
 batch_size = 16
 initial_lr = 0.001
 lr_patience = 0
-lr_reduce_factor = 0.1
+lr_reduce_factor = 0.001
 
 
 def collate_fn(batch):
@@ -41,7 +41,7 @@ class TimitDataModule(pl.LightningDataModule):
         self.ds_args = {'batch_size': batch_size,
                         'collate_fn': collate_fn,
                         'num_workers': 12,
-                        'pin_memory': True}
+                        'pin_memory': False}
 
     def train_dataloader(self):
         return DataLoader(dataset=self.train_ds,
@@ -124,7 +124,7 @@ if __name__ == '__main__':
     model = PhonemeClassifier(batch_size, initial_lr)
     # resume_from_checkpoint='lightning_logs/version_42/checkpoints/epoch=14-step=314.ckpt')
     trainer = pl.Trainer(gpus=1, max_epochs=num_epochs,
-                         stochastic_weight_avg=True)  # precision=16,
+                         stochastic_weight_avg=True, precision=16)
 
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)
