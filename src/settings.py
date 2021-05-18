@@ -10,6 +10,7 @@ VAL_PATH = DATA_PATH / 'val'
 
 CUDA0 = torch.device('cuda:0')
 VAL_PERCENTAGE = 0.2
+AUGMENT_DATASET = True
 """
 STRIDE & SPECGRAM_HOP_LENGTH should be set so that
 SAMPLES_PER_STRIDE / SPECGRAM_HOP_LENGTH

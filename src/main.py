@@ -17,7 +17,7 @@ warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 
 
 num_epochs = 30
-batch_size = 64
+batch_size = 32
 initial_lr = 0.001
 lr_patience = 0
 lr_reduce_factor = 0.1
@@ -36,7 +36,7 @@ class TimitDataModule(pl.LightningDataModule):
 
     def setup(self, stage):
         self.train_ds = FrameDataset(
-            DiskDataset(TRAIN_PATH), augment=True)
+            DiskDataset(TRAIN_PATH), augment=AUGMENT_DATASET)
         self.val_ds = FrameDataset(DiskDataset(VAL_PATH))
         self.test_ds = FrameDataset(DiskDataset(TEST_PATH))
 
