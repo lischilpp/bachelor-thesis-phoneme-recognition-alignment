@@ -28,7 +28,7 @@ class CNNModel(nn.Module):
         self.c2_16 = nn.Conv2d(8, 3, kernel_size=1, stride=1)
         self.c2_32 = nn.Conv2d(8, 3, kernel_size=1, stride=1)
 
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(0.3)
 
         self.fc1 = nn.Linear(5040, 512)
 

@@ -17,7 +17,7 @@ warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 
 
 num_epochs = 30
-batch_size = 32
+batch_size = 16
 initial_lr = 0.001
 lr_patience = 0
 lr_reduce_factor = 0.1
@@ -65,7 +65,7 @@ class PhonemeClassifier(pl.LightningModule):
         super().__init__()
         self.batch_size = batch_size
         self.lr = initial_lr
-        self.model = CNNModel(output_size=Phoneme.phoneme_count())
+        self.model = RNNModel(output_size=Phoneme.phoneme_count())
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.lr)
@@ -78,7 +78,7 @@ class PhonemeClassifier(pl.LightningModule):
     def training_step(self, batch, _):
         (specgrams, lengths), labels = batch
 
-        outputs = self.model(specgrams, lengths)
+        outputs = self.model(specgrams, lengths, augment=True)
         loss = self.criterion(outputs, labels)
         self.log('train_loss', loss)
 

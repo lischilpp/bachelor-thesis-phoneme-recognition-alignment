@@ -36,7 +36,7 @@ class FrameDataset(torch.utils.data.Dataset):
             x += SAMPLES_PER_STRIDE
         return labels
 
-    def random_augment(self, record):
+    def augment_record(self, record):
         waveform, phonemes = record
         speed_factor = random.uniform(0.85, 1.25)
         pitch_factor = random.uniform(-4, 4)  # 4 semitones
@@ -67,13 +67,26 @@ class FrameDataset(torch.utils.data.Dataset):
             mel_spectrogram_transform(waveform))[:, :n_frames*SPECTROGRAM_FRAME_LENGTH].transpose(0, 1)
         return specgram, n_frames
 
+    def augment_specgram(self, specgram):
+        torch.random.manual_seed(4)
+        masking = T.FrequencyMasking(freq_mask_param=80)
+        specgram = masking(specgram)
+        for i in range(specgram.size(0), SPECTROGRAM_FRAME_LENGTH):
+            frame = specgram.narrow(i, i+SPECTROGRAM_FRAME_LENGTH)
+            torch.random.manual_seed(4)
+            masking = T.TimeMasking(freq_mask_param=1)
+            frame = masking(frame)
+        return specgram
+
     def __getitem__(self, index):
         record = self.root_ds[index]
         if self.augment:
-            record = self.random_augment(record)
+            record = self.augment_record(record)
         waveform, phonemes = record
         n_samples = len(waveform)
         specgram, n_frames = self.waveform_to_spectrogram(waveform)
+        if self.augment:
+            specgram = self.augment_specgram(specgram)
         labels = self.get_frame_labels(phonemes, n_frames, n_samples)
         return specgram, labels
 

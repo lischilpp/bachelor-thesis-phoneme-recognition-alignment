@@ -18,8 +18,8 @@ is an integer (otherwise a spectrogram frame boundaries would overlap)
 """
 FRAME_LENGTH = 25  # in ms
 STRIDE = 10  # in ms
-SPECGRAM_HOP_LENGTH = 80
-SPECGRAM_N_MELS = 64
+SPECGRAM_HOP_LENGTH = 40
+SPECGRAM_N_MELS = 89
 SAMPLE_RATE = 16000
 
 # semi-constants (depend on previous constants)
