@@ -1,3 +1,4 @@
+from rnn_model import RNNModel
 from cnn_model import CNNModel
 from dataset.frame_dataset import FrameDataset
 from dataset.disk_dataset import DiskDataset
@@ -16,10 +17,10 @@ warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 
 
 num_epochs = 30
-batch_size = 16
+batch_size = 64
 initial_lr = 0.001
 lr_patience = 0
-lr_reduce_factor = 0.001
+lr_reduce_factor = 0.1
 
 
 def collate_fn(batch):
@@ -34,14 +35,15 @@ def collate_fn(batch):
 class TimitDataModule(pl.LightningDataModule):
 
     def setup(self, stage):
-        self.train_ds = FrameDataset(DiskDataset(TRAIN_PATH), augment=True)
+        self.train_ds = FrameDataset(
+            DiskDataset(TRAIN_PATH), augment=True)
         self.val_ds = FrameDataset(DiskDataset(VAL_PATH))
         self.test_ds = FrameDataset(DiskDataset(TEST_PATH))
 
         self.ds_args = {'batch_size': batch_size,
                         'collate_fn': collate_fn,
                         'num_workers': 12,
-                        'pin_memory': False}
+                        'pin_memory': True}
 
     def train_dataloader(self):
         return DataLoader(dataset=self.train_ds,
@@ -87,8 +89,6 @@ class PhonemeClassifier(pl.LightningModule):
         specgrams = specgrams
         labels = labels
         outputs = self.model(specgrams, lengths)
-        # print(outputs.shape)
-        # print(labels.shape)
         loss = self.criterion(outputs, labels)
         acc = FM.accuracy(torch.argmax(outputs, dim=1), labels)
         metrics = {'val_loss': loss, 'val_acc': acc}

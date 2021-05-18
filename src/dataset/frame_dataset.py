@@ -16,51 +16,30 @@ class FrameDataset(torch.utils.data.Dataset):
         super().__init__()
         self.root_ds = root_ds
         self.n_records = len(root_ds)
-        self.samples_per_frame = SAMPLE_RATE / 1000 * FRAME_LENGTH
-        self.samples_per_stride = SAMPLE_RATE / 1000 * STRIDE
         self.augment = augment
 
-    def get_frame_labels(self, phonemes, n_samples):
-        labels = []
+    def get_frame_labels(self, phonemes, n_frames, n_samples):
+        labels = torch.zeros(n_frames, dtype=torch.long)
         phon_idx = 0
+        label_idx = 0
         x = 0
-        while x + self.samples_per_frame < n_samples:
-            sample_idx = floor(x)
+        while x + SAMPLES_PER_FRAME < n_samples:
             phon = phonemes[phon_idx]
-            if phon.stop - sample_idx < 0.5 * self.samples_per_frame and \
+            # < 50% of phoneme in current frame
+            if phon.stop - x < 0.5 * SAMPLES_PER_STRIDE and \
                     phon_idx < len(phonemes) - 1:
+                # next phoneme
                 phon_idx += 1
                 phon = phonemes[phon_idx]
-
-            labels.append(Phoneme.symbol_to_index(phon.symbol))
-            x += self.samples_per_stride
-        return torch.tensor(labels)
-
-    def frames_to_spectrograms(self, frames):
-        mel_spectrogram_transform = T.MelSpectrogram(
-            sample_rate=SAMPLE_RATE,
-            n_mels=SPECGRAM_N_MELS,
-            hop_length=SPECGRAM_HOP_LENGTH
-        )
-        specgrams = T.AmplitudeToDB()(mel_spectrogram_transform(frames))
-        return specgrams
-
-    def waveform_to_frames(self, waveform, n_samples):
-        self.samples_per_frame = floor(self.samples_per_frame)
-        frames = []
-        x = 0
-        i = 0
-        while x + self.samples_per_frame < n_samples:
-            idx = floor(x)
-            frames.append(waveform[idx: idx + self.samples_per_frame])
-            x += self.samples_per_stride
-            i += 1
-        return torch.stack(frames)
+            labels[label_idx] = Phoneme.symbol_to_index(phon.symbol)
+            label_idx += 1
+            x += SAMPLES_PER_STRIDE
+        return labels
 
     def random_augment(self, record):
         waveform, phonemes = record
-        speed_factor = random.uniform(0.25, 2)
-        pitch_factor = random.uniform(-11, 11)  # 4 semitones
+        speed_factor = random.uniform(0.85, 1.25)
+        pitch_factor = random.uniform(-4, 4)  # 4 semitones
         effects = [
             ['remix', '-'],  # merge all channels
             ['tempo', str(speed_factor)],
@@ -82,8 +61,11 @@ class FrameDataset(torch.utils.data.Dataset):
             n_mels=SPECGRAM_N_MELS,
             hop_length=SPECGRAM_HOP_LENGTH
         )
-        specgram = T.AmplitudeToDB()(mel_spectrogram_transform(waveform)).transpose(0, 1)
-        return specgram
+        n_frames = len(
+            waveform) // SPECGRAM_HOP_LENGTH // SPECTROGRAM_FRAME_LENGTH
+        specgram = T.AmplitudeToDB()(
+            mel_spectrogram_transform(waveform))[:, :n_frames*SPECTROGRAM_FRAME_LENGTH].transpose(0, 1)
+        return specgram, n_frames
 
     def __getitem__(self, index):
         record = self.root_ds[index]
@@ -91,11 +73,9 @@ class FrameDataset(torch.utils.data.Dataset):
             record = self.random_augment(record)
         waveform, phonemes = record
         n_samples = len(waveform)
-        frames = self.waveform_to_frames(waveform, n_samples)
-        specgrams = self.frames_to_spectrograms(frames)
-        # specgram = self.waveform_to_spectrogram(waveform)
-        labels = self.get_frame_labels(phonemes, n_samples)
-        return specgrams, labels
+        specgram, n_frames = self.waveform_to_spectrogram(waveform)
+        labels = self.get_frame_labels(phonemes, n_frames, n_samples)
+        return specgram, labels
 
     def __len__(self):
         return self.n_records
