@@ -43,15 +43,15 @@ class CNNModel(nn.Module):
     def forward(self, batch, lengths):
         x = batch[:, None, :, :]
         # feature extraction
-        r1_4 = self.maxpool(F.relu(self.bn8(self.c1_4(x))))
-        r1_8 = self.maxpool(F.relu(self.bn8(self.c1_8(x))))
-        r1_16 = self.maxpool(F.relu(self.bn8(self.c1_16(x))))
-        r1_32 = self.maxpool(F.relu(self.bn8(self.c1_32(x))))
+        r1_4 = self.dropout(self.maxpool(F.relu(self.bn8(self.c1_4(x)))))
+        r1_8 = self.dropout(self.maxpool(F.relu(self.bn8(self.c1_8(x)))))
+        r1_16 = self.dropout(self.maxpool(F.relu(self.bn8(self.c1_16(x)))))
+        r1_32 = self.dropout(self.maxpool(F.relu(self.bn8(self.c1_32(x)))))
 
-        r3_4 = self.dropout(F.relu(self.bn3(self.c2_4(r1_4))))
-        r3_8 = self.dropout(F.relu(self.bn3(self.c2_8(r1_8))))
-        r3_16 = self.dropout(F.relu(self.bn3(self.c2_16(r1_16))))
-        r3_32 = self.dropout(F.relu(self.bn3(self.c2_32(r1_32))))
+        r2_4 = self.dropout(F.relu(self.bn3(self.c2_4(r1_4))))
+        r2_8 = self.dropout(F.relu(self.bn3(self.c2_8(r1_8))))
+        r2_16 = self.dropout(F.relu(self.bn3(self.c2_16(r1_16))))
+        r2_32 = self.dropout(F.relu(self.bn3(self.c2_32(r1_32))))
 
         max_len = torch.max(lengths)
         p = 0
@@ -61,10 +61,10 @@ class CNNModel(nn.Module):
         for i, x in enumerate(batch):
             # remove padding
             len_ratio = lengths[i] / max_len
-            rx_4 = r3_4[i, :, :int(r3_4.size(2) * len_ratio), :]
-            rx_8 = r3_8[i, :, :int(r3_8.size(2) * len_ratio), :]
-            rx_16 = r3_16[i, :, :int(r3_16.size(2) * len_ratio), :]
-            rx_32 = r3_32[i, :, :int(r3_32.size(2) * len_ratio), :]
+            rx_4 = r2_4[i, :, :int(r2_4.size(2) * len_ratio), :]
+            rx_8 = r2_8[i, :, :int(r2_8.size(2) * len_ratio), :]
+            rx_16 = r2_16[i, :, :int(r2_16.size(2) * len_ratio), :]
+            rx_32 = r2_32[i, :, :int(r2_32.size(2) * len_ratio), :]
 
             # normalize length
             r_4 = torchvision.transforms.Resize((90, 9))(rx_4)
