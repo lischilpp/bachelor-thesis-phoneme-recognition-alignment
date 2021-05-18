@@ -71,11 +71,11 @@ class FrameDataset(torch.utils.data.Dataset):
         torch.random.manual_seed(4)
         masking = T.FrequencyMasking(freq_mask_param=80)
         specgram = masking(specgram)
-        for i in range(specgram.size(0), SPECTROGRAM_FRAME_LENGTH):
-            frame = specgram.narrow(i, i+SPECTROGRAM_FRAME_LENGTH)
+        for i in range(0, specgram.size(0) - SPECTROGRAM_FRAME_LENGTH, SPECTROGRAM_FRAME_LENGTH):
+            frame = specgram.narrow(0, i, SPECTROGRAM_FRAME_LENGTH)
             torch.random.manual_seed(4)
-            masking = T.TimeMasking(freq_mask_param=1)
-            frame = masking(frame)
+            masking = T.TimeMasking(time_mask_param=2)
+            specgram[i:i+SPECTROGRAM_FRAME_LENGTH, :] = masking(frame)
         return specgram
 
     def __getitem__(self, index):
