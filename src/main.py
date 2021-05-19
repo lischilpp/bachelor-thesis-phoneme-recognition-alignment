@@ -1,8 +1,8 @@
-from rnn_model import RNNModel
-from cnn_model import CNNModel
-from dataset.frame_dataset import FrameDataset
-from dataset.disk_dataset import DiskDataset
 from phonemes import Phoneme
+from dataset.disk_dataset import DiskDataset
+from dataset.frame_dataset import FrameDataset
+from models.cnn_model import CNNModel
+from models.rnn_model import RNNModel
 from settings import *
 from pytorch_lightning.metrics import functional as FM
 import pytorch_lightning as pl
@@ -10,16 +10,12 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
-import warnings
-
-# disable C++ extension warning
-warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 
 
 num_epochs = 30
 batch_size = 16
 initial_lr = 0.001
-lr_patience = 0
+lr_patience = 1
 lr_reduce_factor = 0.1
 
 
@@ -78,7 +74,7 @@ class PhonemeClassifier(pl.LightningModule):
     def training_step(self, batch, _):
         (specgrams, lengths), labels = batch
 
-        outputs = self.model(specgrams, lengths, augment=True)
+        outputs = self.model(specgrams, lengths)
         loss = self.criterion(outputs, labels)
         self.log('train_loss', loss)
 

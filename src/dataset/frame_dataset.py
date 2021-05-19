@@ -68,10 +68,18 @@ class FrameDataset(torch.utils.data.Dataset):
         return specgram, n_frames
 
     def augment_specgram(self, specgram):
-        torch.random.manual_seed(4)
-        masking = T.FrequencyMasking(freq_mask_param=80)
-        specgram = masking(specgram)
+        # gaussian noise
+        noise = torch.randn(specgram.shape)
+        specgram += 0.005*noise
+        # frequency mask
+        if random.random() < 0.2:
+            torch.random.manual_seed(4)
+            masking = T.FrequencyMasking(freq_mask_param=80)
+            specgram = masking(specgram)
+        # time mask
         for i in range(0, specgram.size(0) - SPECTROGRAM_FRAME_LENGTH, SPECTROGRAM_FRAME_LENGTH):
+            if random.random() > 0.2:
+                continue
             frame = specgram.narrow(0, i, SPECTROGRAM_FRAME_LENGTH)
             torch.random.manual_seed(4)
             masking = T.TimeMasking(time_mask_param=2)

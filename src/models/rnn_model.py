@@ -15,18 +15,18 @@ class RNNModel(nn.Module):
         self.fc1 = nn.Linear(SPECGRAM_N_MELS, SPECGRAM_N_MELS)
         self.fc2 = nn.Linear(2*self.hidden_size1, 2*self.hidden_size1)
         self.rnn1 = nn.RNN(SPECGRAM_N_MELS, self.hidden_size1,
-                           self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
+                           self.num_layers1, batch_first=True, bidirectional=True)
         self.rnn2 = nn.GRU(self.hidden_size1*2, self.hidden_size2,
-                           self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
+                           self.num_layers1, batch_first=True, bidirectional=True)
         self.fc = nn.Linear(self.hidden_size2*2, self.output_size)
 
-    def forward(self, batch, lengths, augment=False):
+    def forward(self, batch, lengths):
         predictions = torch.zeros(
             lengths.sum().item() // SPECTROGRAM_FRAME_LENGTH, self.output_size, device=CUDA0)
         p = 0
         for i in range(batch.size(0)):
             specgram = batch[i][:lengths[i]]
-            #specgram = self.fc1(specgram)
+            specgram = self.fc1(specgram)
             frames = specgram.unfold(
                 0, SPECTROGRAM_FRAME_LENGTH, SPECTROGRAM_FRAME_LENGTH)
 
@@ -38,7 +38,7 @@ class RNNModel(nn.Module):
             out, _ = self.rnn1(frames, h01)
             out = out[:, -1, :]
             out2 = out.unsqueeze(0)
-            #out2 = self.fc2(out2)
+            out2 = self.fc2(out2)
             # frame classification
             # features of all frames of an audiofile passed into BiGRU (many-to-many)
             h02 = torch.zeros(self.num_layers2*self.num_layers1, 1,

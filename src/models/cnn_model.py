@@ -28,13 +28,13 @@ class CNNModel(nn.Module):
         self.c2_16 = nn.Conv2d(8, 3, kernel_size=1, stride=1)
         self.c2_32 = nn.Conv2d(8, 3, kernel_size=1, stride=1)
 
-        self.dropout = nn.Dropout(0.3)
+        self.dropout = nn.Dropout(0.2)
 
         self.fc1 = nn.Linear(5040, 512)
 
         self.num_layers = 2
         self.hidden_size = 256
-        self.rnn_input_size = 128 + 512
+        self.rnn_input_size = 356 + 512
 
         self.rnn = nn.GRU(input_size=self.rnn_input_size, hidden_size=self.hidden_size,
                           num_layers=self.num_layers, bidirectional=True, dropout=0.5)
