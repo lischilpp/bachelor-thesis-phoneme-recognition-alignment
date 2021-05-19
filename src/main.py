@@ -16,15 +16,15 @@ num_epochs = 30
 batch_size = 16
 initial_lr = 0.001
 lr_patience = 1
-lr_reduce_factor = 0.1
+lr_reduce_factor = 0.5
 
 
 def collate_fn(batch):
     lengths = torch.tensor([item[0].size(0) for item in batch])
-    frames = [item[0] for item in batch]
-    frames = pad_sequence(frames, batch_first=True)
+    fbanks = [item[0] for item in batch]
+    fbanks = pad_sequence(fbanks, batch_first=True)
     labels = torch.cat([item[1] for item in batch])
-    frame_data = (frames, lengths)
+    frame_data = (fbanks, lengths)
     return [frame_data, labels]
 
 
@@ -36,23 +36,23 @@ class TimitDataModule(pl.LightningDataModule):
         self.val_ds = FrameDataset(DiskDataset(VAL_PATH))
         self.test_ds = FrameDataset(DiskDataset(TEST_PATH))
 
-        self.ds_args = {'batch_size': batch_size,
-                        'collate_fn': collate_fn,
-                        'num_workers': 12,
-                        'pin_memory': True}
+        self.loader_args = {'batch_size': batch_size,
+                            'collate_fn': collate_fn,
+                            'num_workers': 12,
+                            'pin_memory': True}
 
     def train_dataloader(self):
         return DataLoader(dataset=self.train_ds,
                           shuffle=True,
-                          **self.ds_args)
+                          **self.loader_args)
 
     def val_dataloader(self):
         return DataLoader(dataset=self.val_ds,
-                          **self.ds_args)
+                          **self.loader_args)
 
     def test_dataloader(self):
         return DataLoader(dataset=self.test_ds,
-                          **self.ds_args)
+                          **self.loader_args)
 
 
 class PhonemeClassifier(pl.LightningModule):
