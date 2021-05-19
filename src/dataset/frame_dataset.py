@@ -57,32 +57,35 @@ class FrameDataset(torch.utils.data.Dataset):
             pn.stop = floor(pn.stop / speed_factor)
         return waveform, phonemes
 
-    def augment_specgram(self, specgram):
+    def augment_specgrams(self, specgrams):
         # gaussian noise
-        noise = torch.randn(specgram.shape)
-        specgram += 0.005*noise
+        noise = torch.randn(specgrams.shape)
+        specgrams += 0.005*noise
         # frequency mask
         if random.random() < 0.2:
             torch.random.manual_seed(4)
             masking = T.FrequencyMasking(freq_mask_param=80)
-            specgram = masking(specgram)
+            specgrams = masking(specgrams)
         # time mask
-        for i in range(0, specgram.size(0) - FBANK_FRAME_LENGTH, FBANK_FRAME_LENGTH):
+        for i in range(0, specgrams.size(0) - SPECGRAM_FRAME_LENGTH, SPECGRAM_FRAME_LENGTH):
             if random.random() > 0.2:
                 continue
-            frame = specgram.narrow(0, i, FBANK_FRAME_LENGTH)
+            frame = specgrams.narrow(0, i, SPECGRAM_FRAME_LENGTH)
             torch.random.manual_seed(4)
             masking = T.TimeMasking(time_mask_param=2)
-            specgram[i:i+FBANK_FRAME_LENGTH, :] = masking(frame)
-        return specgram
+            specgrams[i:i+SPECGRAM_FRAME_LENGTH, :] = masking(frame)
+        return specgrams
 
-    def create_fbank(self, waveform):
-        fbank = kaldi.fbank(
-            waveform,
-            frame_length=FBANK_FRAME_LENGTH,
-            frame_shift=FBANK_STRIDE,
-            num_mel_bins=N_MELS)
-        return fbank
+    def waveform_to_specgrams(self, waveform):
+        mel_spectrogram_transform = T.MelSpectrogram(
+            sample_rate=SAMPLE_RATE,
+            n_mels=N_MELS,
+            win_length=SPECGRAM_FRAME_SAMPLES_LENGTH,
+            hop_length=SPECGRAM_SAMPLES_STRIDE
+        )
+        specgrams = T.AmplitudeToDB()(
+            mel_spectrogram_transform(waveform)[0]).transpose(0, 1)
+        return specgrams
 
     def __getitem__(self, index):
         record = self.root_ds[index]
@@ -90,11 +93,13 @@ class FrameDataset(torch.utils.data.Dataset):
             record = self.augment_record(record)
         waveform, phonemes = record
         n_samples = len(waveform)
-        fbank = self.create_fbank(waveform.view(1, -1))
-        n_frames = fbank.size(0) // FRAME_RESOLUTION
-        fbank = fbank[:n_frames*FRAME_RESOLUTION]
+        specgrams = self.waveform_to_specgrams(waveform.view(1, -1))
+        n_frames = specgrams.size(0) // FRAME_RESOLUTION
+        specgrams = specgrams[:n_frames*FRAME_RESOLUTION]
+        if self.augment:
+            specgrams = self.augment_specgrams(specgrams)
         labels = self.get_frame_labels(phonemes, n_frames, n_samples)
-        return fbank, labels
+        return specgrams, labels
 
     def __len__(self):
         return self.n_records
