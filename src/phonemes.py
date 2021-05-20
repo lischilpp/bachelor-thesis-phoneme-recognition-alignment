@@ -44,6 +44,8 @@ class Phoneme():
 
     @classmethod
     def symbol_to_index(cls, s):
+        if s == 'q':  # map glottal indices to -1 to remove them later
+            return -1
         return cls.folded_phoneme_list.index(s)
 
     @classmethod
@@ -62,8 +64,6 @@ class Phoneme():
             phonemes = []
             for row in reader:
                 symbol = row[2]
-                if symbol == 'q':  # skip glottal stop
-                    continue
                 symbol = Phoneme.symbol_to_folded.get(symbol, symbol)
                 start = int(row[0])
                 stop = int(row[1])

@@ -15,9 +15,9 @@ class RNNModel(nn.Module):
         self.fc1 = nn.Linear(N_MELS, N_MELS)
         self.fc2 = nn.Linear(2*self.hidden_size1, 2*self.hidden_size1)
         self.rnn1 = nn.RNN(N_MELS, self.hidden_size1,
-                           self.num_layers1, batch_first=True, bidirectional=True)
+                           self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
         self.rnn2 = nn.GRU(self.hidden_size1*2, self.hidden_size2,
-                           self.num_layers1, batch_first=True, bidirectional=True)
+                           self.num_layers1, batch_first=True, bidirectional=True, dropout=0.5)
         self.fc = nn.Linear(self.hidden_size2*2, self.output_size)
 
     def forward(self, batch, lengths):

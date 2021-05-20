@@ -1,3 +1,4 @@
+from pytorch_lightning.tuner.lr_finder import lr_find
 from phonemes import Phoneme
 from dataset.disk_dataset import DiskDataset
 from dataset.frame_dataset import FrameDataset
@@ -14,8 +15,8 @@ import torch.nn as nn
 
 num_epochs = 100
 batch_size = 32
-initial_lr = 0.01
-lr_patience = 2
+initial_lr = 0.0002
+lr_patience = 0
 lr_reduce_factor = 0.5
 
 

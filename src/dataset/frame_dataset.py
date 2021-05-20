@@ -1,5 +1,4 @@
 import torchaudio.transforms as T
-import torchaudio.compliance.kaldi as kaldi
 from torchaudio.sox_effects import apply_effects_tensor
 from phonemes import Phoneme
 from settings import *
@@ -7,7 +6,6 @@ import torch
 import random
 from math import floor
 import warnings
-import matplotlib.pyplot as plt
 # disable C++ extension warning
 warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 
@@ -87,6 +85,13 @@ class FrameDataset(torch.utils.data.Dataset):
             mel_spectrogram_transform(waveform)[0]).transpose(0, 1)
         return specgrams
 
+    def remove_glottal_stops(self, specgrams, labels):
+        non_glottal_indices = torch.nonzero(labels.ne(-1))
+        specgrams = specgrams[non_glottal_indices.repeat_interleave(
+            FRAME_RESOLUTION)].squeeze(1)
+        labels = labels[non_glottal_indices].squeeze(1)
+        return specgrams, labels
+
     def __getitem__(self, index):
         record = self.root_ds[index]
         if self.augment:
@@ -99,6 +104,7 @@ class FrameDataset(torch.utils.data.Dataset):
         if self.augment:
             specgrams = self.augment_specgrams(specgrams)
         labels = self.get_frame_labels(phonemes, n_frames, n_samples)
+        specgrams, labels = self.remove_glottal_stops(specgrams, labels)
         return specgrams, labels
 
     def __len__(self):
