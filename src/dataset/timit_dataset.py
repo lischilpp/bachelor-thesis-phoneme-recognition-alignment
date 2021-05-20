@@ -22,14 +22,12 @@ class TimitDataset(torch.utils.data.Dataset):
         train_test_str = "TEST" if self.test else "TRAIN"
 
         with open(TIMIT_PATH / f'{train_test_str.lower()}_data.csv') as file:
-            next(file)
-            for row in csv.reader(file, delimiter=','):
+            for row in csv.DictReader(file, delimiter=','):
                 # is train/test data & not spoken dialect & audiofile
-                if row[1] == train_test_str and \
-                        not row[4].startswith('SA') and \
-                        row[7] == 'TRUE' and \
-                        row[8] == 'TRUE':
-                    path = row[5]
+                if row['test_or_train'] == train_test_str and \
+                        not row['filename'].startswith('SA') and \
+                        row['is_converted_audio'] == 'TRUE':
+                    path = row['path_from_data_dir']
                     path_no_ext = path[0:path.index('.')]
                     recording_paths.append(path_no_ext)
         return recording_paths
