@@ -67,13 +67,13 @@ class FrameDataset(torch.utils.data.Dataset):
             masking = T.FrequencyMasking(freq_mask_param=80)
             specgrams = masking(specgrams)
         # time mask
-        for i in range(0, specgrams.size(0) - SPECGRAM_FRAME_LENGTH, SPECGRAM_FRAME_LENGTH):
+        for i in range(0, specgrams.size(0) - FRAME_RESOLUTION, FRAME_RESOLUTION):
             if random.random() > 0.2:
                 continue
-            frame = specgrams.narrow(0, i, SPECGRAM_FRAME_LENGTH)
+            frame = specgrams.narrow(0, i, FRAME_RESOLUTION)
             torch.random.manual_seed(4)
-            masking = T.TimeMasking(time_mask_param=2)
-            specgrams[i:i+SPECGRAM_FRAME_LENGTH, :] = masking(frame)
+            masking = T.TimeMasking(time_mask_param=FRAME_RESOLUTION // 3)
+            specgrams[i:i+FRAME_RESOLUTION, :] = masking(frame)
         return specgrams
 
     def waveform_to_specgrams(self, waveform):

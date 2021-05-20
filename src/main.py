@@ -12,19 +12,19 @@ from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
 
 
-num_epochs = 30
-batch_size = 16
-initial_lr = 0.001
-lr_patience = 1
+num_epochs = 100
+batch_size = 32
+initial_lr = 0.01
+lr_patience = 2
 lr_reduce_factor = 0.5
 
 
 def collate_fn(batch):
     lengths = torch.tensor([item[0].size(0) for item in batch])
-    fbanks = [item[0] for item in batch]
-    fbanks = pad_sequence(fbanks, batch_first=True)
+    specgrams = [item[0] for item in batch]
+    specgrams = pad_sequence(specgrams, batch_first=True)
     labels = torch.cat([item[1] for item in batch])
-    frame_data = (fbanks, lengths)
+    frame_data = (specgrams, lengths)
     return [frame_data, labels]
 
 
@@ -118,7 +118,6 @@ if __name__ == '__main__':
     dm = TimitDataModule()
 
     model = PhonemeClassifier(batch_size, initial_lr)
-    # resume_from_checkpoint='lightning_logs/version_42/checkpoints/epoch=14-step=314.ckpt')
     trainer = pl.Trainer(gpus=1, max_epochs=num_epochs,
                          stochastic_weight_avg=True, precision=16)
 
