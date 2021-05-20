@@ -13,10 +13,10 @@ from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
 
 
-num_epochs = 100
-batch_size = 32
-initial_lr = 0.0002
-lr_patience = 0
+num_epochs = 30
+batch_size = 16
+initial_lr = 0.002
+lr_patience = 1
 lr_reduce_factor = 0.5
 
 
@@ -120,7 +120,7 @@ if __name__ == '__main__':
 
     model = PhonemeClassifier(batch_size, initial_lr)
     trainer = pl.Trainer(gpus=1, max_epochs=num_epochs,
-                         stochastic_weight_avg=True, precision=16)
+                         stochastic_weight_avg=True)
 
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)

@@ -26,8 +26,9 @@ class TimitDataset(torch.utils.data.Dataset):
             for row in csv.reader(file, delimiter=','):
                 # is train/test data & not spoken dialect & audiofile
                 if row[1] == train_test_str and \
-                   not row[4].startswith('SA') and \
-                   row[10] == 'TRUE':
+                        not row[4].startswith('SA') and \
+                        row[7] == 'TRUE' and \
+                        row[8] == 'TRUE':
                     path = row[5]
                     path_no_ext = path[0:path.index('.')]
                     recording_paths.append(path_no_ext)

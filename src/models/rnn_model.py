@@ -25,9 +25,9 @@ class RNNModel(nn.Module):
             lengths.sum().item() // FRAME_RESOLUTION, self.output_size, device=CUDA0)
         p = 0
         for i in range(batch.size(0)):
-            specgrams = batch[i][:lengths[i]]
-            frames = specgrams.unfold(0, FRAME_RESOLUTION,
-                                      FRAME_RESOLUTION).transpose(1, 2)
+            fbank = batch[i][:lengths[i]]
+            frames = fbank.unfold(0, FRAME_RESOLUTION,
+                                  FRAME_RESOLUTION).transpose(1, 2)
             # feature extraction
             # single frame passed as sequence into BiRNN (many-to-one)
             h01 = torch.zeros(self.num_layers1*2, frames.size(0),

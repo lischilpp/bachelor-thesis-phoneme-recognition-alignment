@@ -15,9 +15,9 @@ class Phoneme():
         'ux': 'uw',
         **dict.fromkeys(['en', 'nx'], 'n'),
         **dict.fromkeys(['ax', 'ax-h'], 'ah'),
-        **dict.fromkeys(['pcl', 'tcl', 'kcl', 'qcl',
+        **dict.fromkeys(['pcl', 'tcl', 'kcl',
                          'bcl', 'dcl', 'gcl',
-                         'epi', 'h#', '#h', 'pau'], 'sil')
+                         'epi', 'h#', 'pau'], 'sil')
     }
 
     folded_phoneme_list = [
