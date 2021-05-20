@@ -5,26 +5,26 @@ class Phoneme():
 
     symbol_to_folded = {
         'ao': 'aa',
-        **dict.fromkeys(['ax', 'ax-h'], 'ah'),
         'axr': 'er',
-        'hv': 'hh',
-        'ix': 'ih',
         'el': 'l',
         'em': 'm',
-        **dict.fromkeys(['en', 'nx'], 'n'),
         'eng': 'ng',
-        'zh': 'sh',
+        'hv': 'hh',
+        'ix': 'ih',
+        'sh': 'zh',
         'ux': 'uw',
-        **dict.fromkeys(['pcl', 'tcl', 'kcl', 'bcl', 'dcl',
-                         'gcl', 'h#', 'pau', 'epi'], 'sil')
+        **dict.fromkeys(['en', 'nx'], 'n'),
+        **dict.fromkeys(['ax', 'ax-h'], 'ah'),
+        **dict.fromkeys(['pcl', 'tcl', 'kcl', 'qcl',
+                         'bcl', 'dcl', 'gcl',
+                         'epi', 'h#', '#h', 'pau'], 'sil')
     }
 
     folded_phoneme_list = [
-        'iy', 'ih', 'eh', 'ae', 'ix', 'ax', 'ah', 'uw', 'uh',
-        'ao', 'aa', 'ey', 'ay', 'oy', 'aw', 'ow', 'l', 'el',
-        'r', 'y', 'w', 'er', 'm', 'n', 'en', 'ng', 'ch', 'jh',
-        'dh', 'b', 'd', 'dx', 'g', 'p', 't', 'k', 'z', 'zh',
-        'v', 'f', 'th', 's', 'sh', 'hh', 'cl', 'vcl', 'epi', 'sil'
+        'aa', 'ae', 'ah', 'aw', 'ay', 'b', 'ch', 'd', 'dh',
+        'dx', 'eh', 'er', 'ey', 'f', 'g', 'hh', 'ih', 'iy',
+        'jh', 'k', 'l', 'm', 'n', 'ng', 'ow', 'oy', 'p', 'r',
+        's', 'sil', 't', 'th', 'uh', 'uw', 'v', 'w', 'y', 'z', 'zh'
     ]
 
     def __init__(self, start, stop, symbol):
@@ -44,8 +44,6 @@ class Phoneme():
 
     @classmethod
     def symbol_to_index(cls, s):
-        if s == 'q':  # map glottal indices to -1 to remove them later
-            return -1
         return cls.folded_phoneme_list.index(s)
 
     @classmethod
@@ -64,6 +62,8 @@ class Phoneme():
             phonemes = []
             for row in reader:
                 symbol = row[2]
+                if symbol == 'q':  # remove glottal stops
+                    continue
                 symbol = Phoneme.symbol_to_folded.get(symbol, symbol)
                 start = int(row[0])
                 stop = int(row[1])

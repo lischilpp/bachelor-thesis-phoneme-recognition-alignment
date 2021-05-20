@@ -3,6 +3,7 @@ import torch.nn as nn
 import torchaudio.transforms as T
 import matplotlib.pyplot as plt
 import matplotlib.pyplot as plt
+from phonemes import Phoneme
 
 
 from settings import *
@@ -10,30 +11,18 @@ from dataset.disk_dataset import DiskDataset
 from dataset.frame_dataset import FrameDataset
 
 
-# def waveform_to_spectrogram(waveform):
-#     mel_spectrogram_transform = T.MelSpectrogram(
-#         sample_rate=SAMPLE_RATE,
-#         n_mels=SPECGRAM_N_MELS,
-#         hop_length=SPECGRAM_HOP_LENGTH
-#     )
-#     specgram = T.AmplitudeToDB()(mel_spectrogram_transform(waveform))
-#     return specgram
+symbols = set()
+ds = DiskDataset(TRAIN_PATH)
+for _, phonemes in ds:
+    for pn in phonemes:
+        symbols.add(pn.symbol)
 
+symbols = sorted(symbols)
 
-# def plot_spectrogram(spec, title=None, ylabel='freq_bin', aspect='auto', xmax=None):
-#     fig, axs = plt.subplots(1, 1)
-#     axs.set_title(title or 'Spectrogram (db)')
-#     axs.set_ylabel(ylabel)
-#     axs.set_xlabel('frame')
-#     im = axs.imshow(spec, origin='lower', aspect=aspect)
-#     if xmax:
-#         axs.set_xlim((0, xmax))
-#     fig.colorbar(im, ax=axs)
-#     plt.show()
+print(symbols)
+print(len(symbols))
 
-
-ds = FrameDataset(DiskDataset(TRAIN_PATH))
-fbank, labels = ds[0]
-
-plt.imshow(fbank.transpose(0, 1))
-plt.show()
+folded_symbols = sorted(
+    set([Phoneme.symbol_to_folded.get(s, s) for s in symbols]))
+print(folded_symbols)
+print(len(folded_symbols))

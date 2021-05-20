@@ -18,23 +18,23 @@ class FrameDataset(torch.utils.data.Dataset):
         self.n_records = len(root_ds)
         self.augment = augment
 
-    def get_frame_labels(self, phonemes, n_frames, n_samples):
-        labels = torch.zeros(n_frames, dtype=torch.long)
+    def get_frame_labels(self, phonemes, n_samples):
+        labels = []
         phon_idx = 0
         label_idx = 0
         x = 0
         while x + SAMPLES_PER_FRAME < n_samples:
             phon = phonemes[phon_idx]
-            # < 50% of phoneme in current frame
-            if phon.stop - x < 0.5 * SAMPLES_PER_STRIDE and \
-                    phon_idx < len(phonemes) - 1:
+            # > 50% of phoneme in next frame
+            if phon_idx < len(phonemes) - 1 and \
+               phonemes[phon_idx+1].start - x < 0.5 * SAMPLES_PER_FRAME:
                 # next phoneme
                 phon_idx += 1
                 phon = phonemes[phon_idx]
-            labels[label_idx] = Phoneme.symbol_to_index(phon.symbol)
+            labels.append(Phoneme.symbol_to_index(phon.symbol))
             label_idx += 1
             x += SAMPLES_PER_STRIDE
-        return labels
+        return torch.tensor(labels)
 
     def augment_record(self, record):
         waveform, phonemes = record
@@ -78,33 +78,24 @@ class FrameDataset(torch.utils.data.Dataset):
         mel_spectrogram_transform = T.MelSpectrogram(
             sample_rate=SAMPLE_RATE,
             n_mels=N_MELS,
-            win_length=SPECGRAM_FRAME_SAMPLES_LENGTH,
+            win_length=SPECGRAM_SAMPLES_PER_FRAME,
             hop_length=SPECGRAM_SAMPLES_STRIDE
         )
         specgrams = T.AmplitudeToDB()(
             mel_spectrogram_transform(waveform)[0]).transpose(0, 1)
         return specgrams
 
-    def remove_glottal_stops(self, specgrams, labels):
-        non_glottal_indices = torch.nonzero(labels.ne(-1))
-        specgrams = specgrams[non_glottal_indices.repeat_interleave(
-            FRAME_RESOLUTION)].squeeze(1)
-        labels = labels[non_glottal_indices].squeeze(1)
-        return specgrams, labels
-
     def __getitem__(self, index):
         record = self.root_ds[index]
         if self.augment:
             record = self.augment_record(record)
         waveform, phonemes = record
-        n_samples = len(waveform)
+        labels = self.get_frame_labels(phonemes, len(waveform))
         specgrams = self.waveform_to_specgrams(waveform.view(1, -1))
-        n_frames = specgrams.size(0) // FRAME_RESOLUTION
-        specgrams = specgrams[:n_frames*FRAME_RESOLUTION]
+        # cut last frame if smaller than frame length
+        specgrams = specgrams[:labels.size(0) * FRAME_RESOLUTION]
         if self.augment:
             specgrams = self.augment_specgrams(specgrams)
-        labels = self.get_frame_labels(phonemes, n_frames, n_samples)
-        specgrams, labels = self.remove_glottal_stops(specgrams, labels)
         return specgrams, labels
 
     def __len__(self):
