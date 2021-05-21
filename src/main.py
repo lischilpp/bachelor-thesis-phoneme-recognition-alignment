@@ -14,8 +14,8 @@ import torch.nn as nn
 
 
 num_epochs = 30
-batch_size = 16
-initial_lr = 0.002
+batch_size = 64
+initial_lr = 0.0001
 lr_patience = 0
 lr_reduce_factor = 0.5
 
@@ -74,18 +74,16 @@ class PhonemeClassifier(pl.LightningModule):
 
     def training_step(self, batch, _):
         (specgrams, lengths), labels = batch
-
-        outputs = self.model(specgrams, lengths)
+        outputs = self.model(specgrams, lengths, self.device)
         loss = self.criterion(outputs, labels)
         self.log('train_loss', loss)
-
         return loss
 
     def validation_step(self, batch, _):
         (specgrams, lengths), labels = batch
         specgrams = specgrams
         labels = labels
-        outputs = self.model(specgrams, lengths)
+        outputs = self.model(specgrams, lengths, self.device)
         loss = self.criterion(outputs, labels)
         acc = FM.accuracy(torch.argmax(outputs, dim=1), labels)
         metrics = {'val_loss': loss, 'val_acc': acc}
@@ -96,7 +94,7 @@ class PhonemeClassifier(pl.LightningModule):
         (specgrams, lengths), labels = batch
         specgrams = specgrams
         labels = labels
-        outputs = self.model(specgrams, lengths)
+        outputs = self.model(specgrams, lengths, self.device)
         loss = self.criterion(outputs, labels)
         acc = FM.accuracy(torch.argmax(outputs, dim=1), labels)
         metrics = {'test_loss': loss, 'test_acc': acc}
@@ -119,8 +117,7 @@ if __name__ == '__main__':
     dm = TimitDataModule()
 
     model = PhonemeClassifier(batch_size, initial_lr)
-    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs,
-                         stochastic_weight_avg=True, precision=16)
+    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16)
 
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)

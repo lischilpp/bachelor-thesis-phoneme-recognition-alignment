@@ -8,7 +8,6 @@ TRAIN_PATH = DATA_PATH / 'train'
 TEST_PATH = DATA_PATH / 'test'
 VAL_PATH = DATA_PATH / 'val'
 
-CUDA0 = torch.device('cuda:0')
 VAL_PERCENTAGE = 0.1
 AUGMENT_DATASET = True
 FRAME_LENGTH = 25  # in ms

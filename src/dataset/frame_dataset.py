@@ -48,11 +48,10 @@ class FrameDataset(torch.utils.data.Dataset):
         if self.augment:
             record = augment_record(record)
         waveform, phonemes = record
-        n_samples = len(waveform)
         fbank = self.create_fbank(waveform.view(1, -1))
         if self.augment:
-            fbank = augment_fbank(fbank)
-        labels = self.get_frame_labels(phonemes, n_samples)
+            fbank = augment_fbank(fbank)        
+        labels = self.get_frame_labels(phonemes, len(waveform))
         fbank = fbank[:labels.size(0) * FRAME_RESOLUTION]
         return fbank, labels
 

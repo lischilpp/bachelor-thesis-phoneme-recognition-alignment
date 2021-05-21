@@ -1,10 +1,12 @@
-import os, sys
+import os
+import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from dataset.disk_dataset import DiskDataset
+from dataset.timit_dataset import TimitDataset
+from settings import *
 from torch.utils.data import random_split
 
-from settings import *
-from dataset.timit_dataset import TimitDataset
-from dataset.disk_dataset import DiskDataset
 
 
 train_val_ds = TimitDataset(test=False)
