@@ -20,15 +20,9 @@ class TimitDataset(torch.utils.data.Dataset):
         recording_paths = []
         train_test_str = "TEST" if self.test else "TRAIN"
 
-        with open(TIMIT_PATH / f'DOC/{train_test_str.lower()}_data.csv') as file:
-            for row in csv.DictReader(file, delimiter=','):
-                # is train/test data & not spoken dialect & audiofile
-                if row['test_or_train'] == train_test_str and \
-                        not row['filename'].startswith('SA') and \
-                        row['is_converted_audio'] == 'TRUE':
-                    path = row['path_from_data_dir']
-                    path_no_ext = path[0:path.index('.')]
-                    recording_paths.append(path_no_ext)
+        for path in (TIMIT_PATH / train_test_str).rglob('*.WAV'):
+            recording_paths.append(str(path.relative_to(TIMIT_PATH))[:-4])
+
         return recording_paths
 
     def __getitem__(self, index):

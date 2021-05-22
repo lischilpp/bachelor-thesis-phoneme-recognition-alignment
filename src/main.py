@@ -7,6 +7,7 @@ from models.rnn_model import RNNModel
 from settings import *
 from pytorch_lightning.metrics import functional as FM
 import pytorch_lightning as pl
+import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
