@@ -30,17 +30,17 @@ class CNNModel(nn.Module):
 
         self.dropout = nn.Dropout(0.2)
 
-        self.fc1 = nn.Linear(5040, 512)
+        self.fc1 = nn.Linear(21162, 512)
 
-        self.num_layers = 2
-        self.hidden_size = 256
+        self.num_layers = 3
+        self.hidden_size = 512
         self.rnn_input_size = 356 + 512
 
         self.rnn = nn.GRU(input_size=self.rnn_input_size, hidden_size=self.hidden_size,
                           num_layers=self.num_layers, bidirectional=True, dropout=0.5)
         self.fc = nn.Linear(self.hidden_size*2, self.output_size)
 
-    def forward(self, batch, lengths):
+    def forward(self, batch, lengths, device):
         x = batch[:, None, :, :]
         # feature extraction
         r1_4 = self.dropout(self.maxpool(F.relu(self.bn8(self.c1_4(x)))))
@@ -56,7 +56,7 @@ class CNNModel(nn.Module):
         max_len = torch.max(lengths)
         p = 0
         predictions = torch.zeros(
-            lengths.sum().item() // SPECTROGRAM_FRAME_LENGTH, self.output_size, device=CUDA0)
+            lengths.sum().item() // FRAME_RESOLUTION, self.output_size, device=device)
 
         for i, x in enumerate(batch):
             # remove padding
@@ -66,11 +66,12 @@ class CNNModel(nn.Module):
             rx_16 = r2_16[i, :, :int(r2_16.size(2) * len_ratio), :]
             rx_32 = r2_32[i, :, :int(r2_32.size(2) * len_ratio), :]
 
+
             # normalize length
-            r_4 = torchvision.transforms.Resize((90, 9))(rx_4)
-            r_8 = torchvision.transforms.Resize((67, 6))(rx_8)
-            r_16 = torchvision.transforms.Resize((67, 6))(rx_16)
-            r_32 = torchvision.transforms.Resize((33, 2))(rx_32)
+            r_4 = torchvision.transforms.Resize((252, 13))(rx_4)
+            r_8 = torchvision.transforms.Resize((189, 9))(rx_8)
+            r_16 = torchvision.transforms.Resize((189, 9))(rx_16)
+            r_32 = torchvision.transforms.Resize((94, 4))(rx_32)
 
             r = torch.cat((r_4.flatten(), r_8.flatten(),
                           r_16.flatten(), r_32.flatten()))
@@ -78,13 +79,13 @@ class CNNModel(nn.Module):
             r = self.fc1(r)
 
             frames = x[:lengths[i]].unfold(
-                0, SPECTROGRAM_FRAME_LENGTH, SPECTROGRAM_FRAME_LENGTH).flatten(1)
+                0, FRAME_RESOLUTION, FRAME_RESOLUTION).flatten(1)
 
             inp = torch.cat((frames, r.repeat(frames.size(0), 1)), 1)
             inp = inp.view(inp.size(0), 1, inp.size(1))
 
             h0 = torch.zeros(self.num_layers*2, 1,
-                             self.hidden_size, device=CUDA0)
+                             self.hidden_size, device=device)
             out, _ = self.rnn(inp, h0)
             for j in range(frames.size(0)):
                 predictions[p] = self.fc(out[j][0])

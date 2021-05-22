@@ -2,7 +2,6 @@ from phonemes import Phoneme
 from settings import *
 import torchaudio
 import torch
-import csv
 import warnings
 # disable C++ extension warning
 warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
@@ -21,7 +20,8 @@ class TimitDataset(torch.utils.data.Dataset):
         train_test_str = "TEST" if self.test else "TRAIN"
 
         for path in (TIMIT_PATH / train_test_str).rglob('*.WAV'):
-            recording_paths.append(str(path.relative_to(TIMIT_PATH))[:-4])
+            if not path.name.startswith('SA'):
+                recording_paths.append(str(path.relative_to(TIMIT_PATH))[:-4])
 
         return recording_paths
 

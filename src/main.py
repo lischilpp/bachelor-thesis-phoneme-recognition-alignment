@@ -14,9 +14,10 @@ from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
 
 
-num_epochs = 50
+num_epochs = 100
 batch_size = 64
-initial_lr = 0.0001
+initial_lr = 0.00001
+# 0.0006
 lr_patience = 1
 lr_reduce_factor = 0.5
 
@@ -119,7 +120,7 @@ if __name__ == '__main__':
     dm = TimitDataModule()
 
     model = PhonemeClassifier(batch_size, initial_lr)
-    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16, stochastic_weight_avg=True) #, resume_from_checkpoint='lightning_logs/version_12/checkpoints/epoch=25-step=1351.ckpt')
+    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16, stochastic_weight_avg=True, resume_from_checkpoint='lightning_logs/version_27/checkpoints/epoch=55-step=3639.ckpt')
 
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)
