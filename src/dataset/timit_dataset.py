@@ -12,7 +12,6 @@ class TimitDataset(torch.utils.data.Dataset):
 
     def __init__(self, test):
         super().__init__()
-        self.data = TIMIT_PATH / 'data'
         self.test = test
         self.recording_paths = self.get_recording_paths()
         self.n_recordings = len(self.recording_paths)
@@ -21,7 +20,7 @@ class TimitDataset(torch.utils.data.Dataset):
         recording_paths = []
         train_test_str = "TEST" if self.test else "TRAIN"
 
-        with open(TIMIT_PATH / f'{train_test_str.lower()}_data.csv') as file:
+        with open(TIMIT_PATH / f'DOC/{train_test_str.lower()}_data.csv') as file:
             for row in csv.DictReader(file, delimiter=','):
                 # is train/test data & not spoken dialect & audiofile
                 if row['test_or_train'] == train_test_str and \
@@ -34,8 +33,8 @@ class TimitDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         recording_path = self.recording_paths[index]
-        wav_path = self.data / f'{recording_path}.WAV'
-        pn_path = self.data / f'{recording_path}.PHN'
+        wav_path = TIMIT_PATH / f'{recording_path}.WAV'
+        pn_path = TIMIT_PATH / f'{recording_path}.PHN'
         waveform, _ = torchaudio.load(wav_path)
         waveform = waveform[0]
         phonemes = Phoneme.get_phonemes_from_file(pn_path)

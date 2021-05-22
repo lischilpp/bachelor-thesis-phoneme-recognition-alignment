@@ -13,10 +13,10 @@ from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
 
 
-num_epochs = 30
+num_epochs = 50
 batch_size = 64
 initial_lr = 0.0001
-lr_patience = 0
+lr_patience = 1
 lr_reduce_factor = 0.5
 
 
@@ -66,8 +66,8 @@ class PhonemeClassifier(pl.LightningModule):
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.lr)
-        self.lr_scheduler = ReduceLROnPlateau(
-            self.optimizer, factor=lr_reduce_factor, patience=lr_patience)
+        # self.lr_scheduler = ReduceLROnPlateau(
+        #     self.optimizer, factor=lr_reduce_factor, patience=lr_patience)
 
     def on_epoch_end(self):
         self.log('lr', self.optimizer.param_groups[0]['lr'], prog_bar=True)
@@ -101,9 +101,10 @@ class PhonemeClassifier(pl.LightningModule):
         self.log_dict(metrics, prog_bar=True)
 
     def configure_optimizers(self):
-        lr_scheduler = {'scheduler': self.lr_scheduler,
-                        'monitor': 'val_loss'}
-        return [self.optimizer], [lr_scheduler]
+        # lr_scheduler = {'scheduler': self.lr_scheduler,
+        #                 'monitor': 'val_loss'}
+        # return [self.optimizer], [lr_scheduler]
+        return self.optimizer
 
     # hide v_num in progres bar
     def get_progress_bar_dict(self):
@@ -117,7 +118,7 @@ if __name__ == '__main__':
     dm = TimitDataModule()
 
     model = PhonemeClassifier(batch_size, initial_lr)
-    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16)
+    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16, stochastic_weight_avg=True) #, resume_from_checkpoint='lightning_logs/version_12/checkpoints/epoch=25-step=1351.ckpt')
 
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)

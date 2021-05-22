@@ -2,8 +2,8 @@ from pathlib import Path
 import torch
 
 
+TIMIT_PATH = Path('../data/timit')
 DATA_PATH = Path('../data')
-TIMIT_PATH = DATA_PATH / 'timit'
 TRAIN_PATH = DATA_PATH / 'train'
 TEST_PATH = DATA_PATH / 'test'
 VAL_PATH = DATA_PATH / 'val'
