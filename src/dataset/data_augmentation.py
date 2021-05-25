@@ -6,21 +6,21 @@ from torchaudio.sox_effects import apply_effects_tensor
 from settings import *
 
 
-gaussian_noise_probability = 0.5
+gaussian_noise_probability = 1
 gaussian_noise_strength = 0.001
 
-pitch_shift_probability = 0.5
+pitch_shift_probability = 1
 pitch_shift_min = -4
 pitch_shift_max = 4  # 4 semitones
 
-tempo_shift_probability = 0.5
-tempo_shift_min = 0.85
-tempo_shift_max = 1.25
+time_stretch_probability = 1
+time_stretch_min = 0.85
+time_stretch_max = 1.25
 
-frequency_mask_probability = 0.5
+frequency_mask_probability = 1
 frequency_mask_height = 10
 
-time_mask_probability = 0.5
+time_mask_probability = 1
 time_mask_frame_probability = 0.2
 time_mask_frame_percentage = 0.5
 
@@ -37,8 +37,8 @@ def augment_record(record):
             pitch_shift_min, pitch_shift_max))
         effects.append(['pitch', f'{pitch_factor * 100}'])
     # tempo shift
-    if random.random() < tempo_shift_probability:
-        tempo_factor = floor2(random.uniform(tempo_shift_min, tempo_shift_max))
+    if random.random() < time_stretch_probability:
+        tempo_factor = floor2(random.uniform(time_stretch_min, time_stretch_max))
         effects.append(['tempo', f'{tempo_factor}'])
         # update phoneme boundaries
         for pn in phonemes:

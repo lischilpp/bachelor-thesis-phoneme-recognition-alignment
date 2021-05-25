@@ -4,6 +4,7 @@ from dataset.disk_dataset import DiskDataset
 from dataset.frame_dataset import FrameDataset
 from models.cnn_model import CNNModel
 from models.rnn_model import RNNModel
+from models.rnn_waveform_model import RNNWaveformModel
 from settings import *
 from pytorch_lightning.metrics import functional as FM
 import pytorch_lightning as pl
@@ -14,10 +15,9 @@ from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
 
 
-num_epochs = 100
+num_epochs = 57
 batch_size = 64
-initial_lr = 0.00001
-# 0.0006
+initial_lr = 0.0001
 lr_patience = 1
 lr_reduce_factor = 0.5
 
@@ -64,7 +64,7 @@ class PhonemeClassifier(pl.LightningModule):
         super().__init__()
         self.batch_size = batch_size
         self.lr = initial_lr
-        self.model = RNNModel(output_size=Phoneme.phoneme_count())
+        self.model = RNNWaveformModel(output_size=Phoneme.phoneme_count())
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.lr)
@@ -120,7 +120,7 @@ if __name__ == '__main__':
     dm = TimitDataModule()
 
     model = PhonemeClassifier(batch_size, initial_lr)
-    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16, stochastic_weight_avg=True, resume_from_checkpoint='lightning_logs/version_27/checkpoints/epoch=55-step=3639.ckpt')
+    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16, stochastic_weight_avg=True)#, resume_from_checkpoint='lightning_logs/version_66/checkpoints/epoch=56-step=3704.ckpt')
 
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)

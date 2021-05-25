@@ -22,7 +22,7 @@ class FrameDataset(torch.utils.data.Dataset):
         phon_idx = 0
         label_idx = 0
         x = 0
-        while x + SAMPLES_PER_FRAME < n_samples:
+        while x + SAMPLES_PER_FRAME <= n_samples:
             phon = phonemes[phon_idx]
             # > 50% of phoneme in next frame
             if phon_idx < len(phonemes) - 1 and \
@@ -48,12 +48,13 @@ class FrameDataset(torch.utils.data.Dataset):
         if self.augment:
             record = augment_record(record)
         waveform, phonemes = record
-        fbank = self.create_fbank(waveform.view(1, -1))
-        if self.augment:
-            fbank = augment_fbank(fbank)        
+        # fbank = self.create_fbank(waveform.view(1, -1))
+        # if self.augment:
+        #     fbank = augment_fbank(fbank)        
+        # fbank = fbank[:labels.size(0) * FRAME_RESOLUTION]
         labels = self.get_frame_labels(phonemes, len(waveform))
-        fbank = fbank[:labels.size(0) * FRAME_RESOLUTION]
-        return fbank, labels
+        # print(labels.shape)
+        return waveform, labels
 
     def __len__(self):
         return self.n_records

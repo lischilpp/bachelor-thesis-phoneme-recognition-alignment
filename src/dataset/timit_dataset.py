@@ -18,11 +18,9 @@ class TimitDataset(torch.utils.data.Dataset):
     def get_recording_paths(self):
         recording_paths = []
         train_test_str = "TEST" if self.test else "TRAIN"
-
         for path in (TIMIT_PATH / train_test_str).rglob('*.WAV'):
-            if not path.name.startswith('SA'):
-                recording_paths.append(str(path.relative_to(TIMIT_PATH))[:-4])
-
+            # if not path.name.startswith('SA'):
+            recording_paths.append(str(path.relative_to(TIMIT_PATH))[:-4])
         return recording_paths
 
     def __getitem__(self, index):
