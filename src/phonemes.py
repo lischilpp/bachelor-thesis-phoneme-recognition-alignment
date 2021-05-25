@@ -17,7 +17,7 @@ class Phoneme():
         **dict.fromkeys(['ax', 'ax-h'], 'ah'),
         **dict.fromkeys(['pcl', 'tcl', 'kcl',
                          'bcl', 'dcl', 'gcl',
-                         'epi', 'h#', 'pau'], 'sil')
+                         'epi', 'h#', 'pau', 'q'], 'sil')
     }
 
     folded_phoneme_list = [
@@ -62,8 +62,6 @@ class Phoneme():
             phonemes = []
             for row in reader:
                 symbol = row[2]
-                if symbol == 'q':  # remove glottal stops
-                    continue
                 symbol = Phoneme.symbol_to_folded.get(symbol, symbol)
                 start = int(row[0])
                 stop = int(row[1])

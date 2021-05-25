@@ -4,6 +4,7 @@ from dataset.disk_dataset import DiskDataset
 from dataset.frame_dataset import FrameDataset
 from models.cnn_model import CNNModel
 from models.rnn_model import RNNModel
+from models.rnn_frequency_model import RNNFrequencyModel
 from models.rnn_waveform_model import RNNWaveformModel
 from settings import *
 from pytorch_lightning.metrics import functional as FM
@@ -13,13 +14,18 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
+from torchmetrics import ConfusionMatrix
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 
-num_epochs = 57
+num_epochs = 100
 batch_size = 64
-initial_lr = 0.0001
+initial_lr = 0.0005
 lr_patience = 1
 lr_reduce_factor = 0.5
+
 
 
 def collate_fn(batch):
@@ -64,10 +70,11 @@ class PhonemeClassifier(pl.LightningModule):
         super().__init__()
         self.batch_size = batch_size
         self.lr = initial_lr
-        self.model = RNNWaveformModel(output_size=Phoneme.phoneme_count())
+        self.model = RNNModel(output_size=Phoneme.phoneme_count())
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.lr)
+        self.confmatMetric = ConfusionMatrix(num_classes=Phoneme.phoneme_count())
         # self.lr_scheduler = ReduceLROnPlateau(
         #     self.optimizer, factor=lr_reduce_factor, patience=lr_patience)
 
@@ -95,10 +102,10 @@ class PhonemeClassifier(pl.LightningModule):
     def test_step(self, batch, _):
         (specgrams, lengths), labels = batch
         specgrams = specgrams
-        labels = labels
         outputs = self.model(specgrams, lengths, self.device)
         loss = self.criterion(outputs, labels)
         acc = FM.accuracy(torch.argmax(outputs, dim=1), labels)
+        self.confmatMetric(torch.argmax(outputs, dim=1), labels)
         metrics = {'test_loss': loss, 'test_acc': acc}
         self.log_dict(metrics, prog_bar=True)
 
@@ -120,7 +127,19 @@ if __name__ == '__main__':
     dm = TimitDataModule()
 
     model = PhonemeClassifier(batch_size, initial_lr)
-    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16, stochastic_weight_avg=True)#, resume_from_checkpoint='lightning_logs/version_66/checkpoints/epoch=56-step=3704.ckpt')
+    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16, stochastic_weight_avg=True)#, resume_from_checkpoint='lightning_logs/version_27/checkpoints/epoch=55-step=3639.ckpt')
 
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)
+
+    confmat = model.confmatMetric.compute()
+    plt.figure(figsize=(15,10))
+    class_names = Phoneme.folded_phoneme_list
+    df_cm = pd.DataFrame(confmat, index=class_names, columns=class_names).astype(int)
+    heatmap = sns.heatmap(df_cm, annot=True, fmt="d")
+
+    heatmap.yaxis.set_ticklabels(heatmap.yaxis.get_ticklabels(), rotation=0, ha='right',fontsize=15)
+    heatmap.xaxis.set_ticklabels(heatmap.xaxis.get_ticklabels(), rotation=45, ha='right',fontsize=15)
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    plt.show()
