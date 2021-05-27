@@ -30,7 +30,7 @@ class FrameDataset(torch.utils.data.Dataset):
                 # next phoneme
                 phon_idx += 1
                 phon = phonemes[phon_idx]
-            labels.append(Phoneme.phoneme_list.index(phon.symbol))
+            labels.append(Phoneme.folded_phoneme_list.index(phon.symbol))
             label_idx += 1
             x += SAMPLES_PER_STRIDE
         return torch.tensor(labels)
@@ -43,12 +43,12 @@ class FrameDataset(torch.utils.data.Dataset):
             num_mel_bins=N_MELS)
         return fbank
 
-    def remove_glottal_stops(self, fbank, labels):
-        non_glottal_indices = torch.nonzero(labels.ne(-1))
-        fbank = fbank[non_glottal_indices.repeat_interleave(
-            FRAME_RESOLUTION)].squeeze(1)
-        labels = labels[non_glottal_indices].squeeze(1)
-        return fbank, labels
+    # def remove_glottal_stops(self, fbank, labels):
+    #     non_glottal_indices = torch.nonzero(labels.ne(-1))
+    #     fbank = fbank[non_glottal_indices.repeat_interleave(
+    #         FRAME_RESOLUTION)].squeeze(1)
+    #     labels = labels[non_glottal_indices].squeeze(1)
+    #     return fbank, labels
 
     def __getitem__(self, index):
         record = self.root_ds[index]

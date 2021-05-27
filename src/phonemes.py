@@ -17,7 +17,7 @@ class Phoneme():
         **dict.fromkeys(['ax', 'ax-h'], 'ah'),
         **dict.fromkeys(['pcl', 'tcl', 'kcl',
                          'bcl', 'dcl', 'gcl',
-                         'epi', 'h#', 'pau', 'q'], 'sil')
+                         'epi', 'h#', 'pau'], 'sil')
     }
 
     phoneme_list = [
@@ -26,7 +26,7 @@ class Phoneme():
         'el', 'em', 'en', 'eng', 'epi', 'er', 'ey', 'f', 'g',
         'gcl', 'h#', 'hh', 'hv', 'ih', 'ix', 'iy', 'jh', 'k',
         'kcl', 'l', 'm', 'n', 'ng', 'nx', 'ow', 'oy', 'p',
-        'pau', 'pcl', 'q', 'r', 's', 'sh', 't', 'tcl', 'th',
+        'pau', 'pcl', 'r', 's', 'sh', 't', 'tcl', 'th',
         'uh', 'uw', 'ux', 'v', 'w', 'y', 'z', 'zh'
     ]
 
@@ -64,9 +64,9 @@ class Phoneme():
             phonemes = []
             for row in reader:
                 symbol = row[2]
-                # if symbol == 'q':
-                #     continue
-                # symbol = Phoneme.symbol_to_folded.get(symbol, symbol)
+                if symbol == 'q':
+                    continue
+                symbol = Phoneme.symbol_to_folded.get(symbol, symbol)
                 start = int(row[0])
                 stop = int(row[1])
                 phoneme = Phoneme(start, stop, symbol)

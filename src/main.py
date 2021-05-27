@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 
 
 num_epochs = 100
-batch_size = 32
+batch_size = 16
 initial_lr = 0.0001
 swa = True
 lr_patience = 0
@@ -73,7 +73,7 @@ class PhonemeClassifier(pl.LightningModule):
         super().__init__()
         self.batch_size = batch_size
         self.lr = initial_lr
-        self.model = RNNModel(output_size=61)#Phoneme.phoneme_count())
+        self.model = RNNModel(output_size=Phoneme.phoneme_count())
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.lr)
@@ -99,11 +99,11 @@ class PhonemeClassifier(pl.LightningModule):
     #     labels[labels == q_idx] = sil_idx
     #     return preds, labels
 
-    def foldPhonemeIndizes(self, indizes):
-        for i in range(indizes.size(0)):
-            symbol = Phoneme.phoneme_list[indizes[i]]
-            indizes[i] = Phoneme.folded_phoneme_list.index(Phoneme.symbol_to_folded.get(symbol, symbol))
-        return indizes
+    # def foldPhonemeIndizes(self, indizes):
+    #     for i in range(indizes.size(0)):
+    #         symbol = Phoneme.phoneme_list[indizes[i]]
+    #         indizes[i] = Phoneme.folded_phoneme_list.index(Phoneme.symbol_to_folded.get(symbol, symbol))
+    #     return indizes
 
     def validation_step(self, batch, _):
         (specgrams, lengths), labels = batch
@@ -113,8 +113,8 @@ class PhonemeClassifier(pl.LightningModule):
         loss = self.criterion(outputs, labels)
         preds = torch.argmax(outputs, dim=1)
         # preds, labels = self.glottal_stops_to_silence(preds, labels)
-        preds = self.foldPhonemeIndizes(preds)
-        labels = self.foldPhonemeIndizes(labels)
+        # preds = self.foldPhonemeIndizes(preds)
+        # labels = self.foldPhonemeIndizes(labels)
         acc = FM.accuracy(preds, labels)
         metrics = {'val_loss': loss, 'val_acc': acc}
         self.log_dict(metrics, prog_bar=True)
@@ -127,8 +127,8 @@ class PhonemeClassifier(pl.LightningModule):
         loss = self.criterion(outputs, labels)
         preds = torch.argmax(outputs, dim=1)
         # preds, labels = self.glottal_stops_to_silence(preds, labels)
-        preds = self.foldPhonemeIndizes(preds)
-        labels = self.foldPhonemeIndizes(labels)
+        # preds = self.foldPhonemeIndizes(preds)
+        # labels = self.foldPhonemeIndizes(labels)
         acc = FM.accuracy(preds, labels)
         self.confmatMetric(torch.argmax(outputs, dim=1), labels)
         metrics = {'test_loss': loss, 'test_acc': acc}
@@ -155,8 +155,8 @@ if __name__ == '__main__':
 
     model = PhonemeClassifier(batch_size, initial_lr)
     trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16,
-        stochastic_weight_avg=swa, auto_lr_find=auto_lr_find) 
-        # resume_from_checkpoint='lightning_logs/epoch=55-step=3639.ckpt')
+        stochastic_weight_avg=swa, auto_lr_find=auto_lr_find)
+        #resume_from_checkpoint='lightning_logs/version_108/checkpoints/epoch=19-step=2599.ckpt')
 
     if auto_lr_find:
         trainer.tune(model, dm)
