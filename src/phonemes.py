@@ -20,6 +20,16 @@ class Phoneme():
                          'epi', 'h#', 'pau', 'q'], 'sil')
     }
 
+    phoneme_list = [
+        'aa', 'ae', 'ah', 'ao', 'aw', 'ax', 'ax-h', 'axr',
+        'ay', 'b', 'bcl', 'ch', 'd', 'dcl', 'dh', 'dx', 'eh',
+        'el', 'em', 'en', 'eng', 'epi', 'er', 'ey', 'f', 'g',
+        'gcl', 'h#', 'hh', 'hv', 'ih', 'ix', 'iy', 'jh', 'k',
+        'kcl', 'l', 'm', 'n', 'ng', 'nx', 'ow', 'oy', 'p',
+        'pau', 'pcl', 'q', 'r', 's', 'sh', 't', 'tcl', 'th',
+        'uh', 'uw', 'ux', 'v', 'w', 'y', 'z', 'zh'
+    ]
+
     folded_phoneme_list = [
         'aa', 'ae', 'ah', 'aw', 'ay', 'b', 'ch', 'd', 'dh',
         'dx', 'eh', 'er', 'ey', 'f', 'g', 'hh', 'ih', 'iy',
@@ -43,14 +53,6 @@ class Phoneme():
         return self.__str__()
 
     @classmethod
-    def symbol_to_index(cls, s):
-        return cls.folded_phoneme_list.index(s)
-
-    @classmethod
-    def index_to_symbol(cls, i):
-        return cls.folded_phoneme_list[i]
-
-    @classmethod
     def phoneme_count(cls):
         return len(cls.folded_phoneme_list)
 
@@ -62,6 +64,8 @@ class Phoneme():
             phonemes = []
             for row in reader:
                 symbol = row[2]
+                # if symbol == 'q':
+                #     continue
                 # symbol = Phoneme.symbol_to_folded.get(symbol, symbol)
                 start = int(row[0])
                 stop = int(row[1])

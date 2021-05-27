@@ -27,9 +27,18 @@ from dataset.frame_dataset import FrameDataset
 # f.add_subplot(2, 1, 2)
 # plt.imshow(specgrams1.transpose(0, 1))
 
+# ds = DiskDataset(TRAIN_PATH)
+# record = ds[3]
+# waveform0, phonemes0 = record
+# waveform1, phonemes1 = augment_record(record)
+# torchaudio.save('test.wav', waveform0.view(1, -1), SAMPLE_RATE)
+# torchaudio.save('test_aug.wav', waveform1.view(1, -1), SAMPLE_RATE)
+
+symbols = set()
 ds = DiskDataset(TRAIN_PATH)
-record = ds[3]
-waveform0, phonemes0 = record
-waveform1, phonemes1 = augment_record(record)
-torchaudio.save('test.wav', waveform0.view(1, -1), SAMPLE_RATE)
-torchaudio.save('test_aug.wav', waveform1.view(1, -1), SAMPLE_RATE)
+for waveform, labels in ds:
+    for label in labels:
+        symbols.add(label.symbol)
+
+symbols = sorted(symbols)
+print(symbols)

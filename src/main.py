@@ -22,10 +22,12 @@ import matplotlib.pyplot as plt
 
 
 num_epochs = 100
-batch_size = 16
-initial_lr = 0.001
+batch_size = 32
+initial_lr = 0.0001
+swa = True
 lr_patience = 0
 lr_reduce_factor = 0.5
+auto_lr_find=False
 
 
 
@@ -71,13 +73,14 @@ class PhonemeClassifier(pl.LightningModule):
         super().__init__()
         self.batch_size = batch_size
         self.lr = initial_lr
-        self.model = RNNModel(output_size=Phoneme.phoneme_count())
+        self.model = RNNModel(output_size=61)#Phoneme.phoneme_count())
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.lr)
         self.confmatMetric = ConfusionMatrix(num_classes=Phoneme.phoneme_count())
-        self.lr_scheduler = ReduceLROnPlateau(
-            self.optimizer, factor=lr_reduce_factor, patience=lr_patience)
+        if not swa:
+            self.lr_scheduler = ReduceLROnPlateau(
+                self.optimizer, factor=lr_reduce_factor, patience=lr_patience)
 
     def on_epoch_end(self):
         self.log('lr', self.optimizer.param_groups[0]['lr'], prog_bar=True)
@@ -89,17 +92,17 @@ class PhonemeClassifier(pl.LightningModule):
         self.log('train_loss', loss)
         return loss
 
-    def glottal_stops_to_silence(self, preds, labels):
-        q_idx = Phoneme.symbol_to_index('q')
-        sil_idx = Phoneme.symbol_to_index('sil')
-        preds[preds == q_idx] = sil_idx
-        labels[labels == q_idx] = sil_idx
-        return preds, labels
+    # def glottal_stops_to_silence(self, preds, labels):
+    #     q_idx = Phoneme.symbol_to_index('q')
+    #     sil_idx = Phoneme.symbol_to_index('sil')
+    #     preds[preds == q_idx] = sil_idx
+    #     labels[labels == q_idx] = sil_idx
+    #     return preds, labels
 
     def foldPhonemeIndizes(self, indizes):
         for i in range(indizes.size(0)):
-            symbol = Phoneme.index_to_symbol(indizes[i])
-            indizes[i] = Phoneme.symbol_to_index(Phoneme.symbol_to_folded.get(symbol, symbol))
+            symbol = Phoneme.phoneme_list[indizes[i]]
+            indizes[i] = Phoneme.folded_phoneme_list.index(Phoneme.symbol_to_folded.get(symbol, symbol))
         return indizes
 
     def validation_step(self, batch, _):
@@ -132,10 +135,12 @@ class PhonemeClassifier(pl.LightningModule):
         self.log_dict(metrics, prog_bar=True)
 
     def configure_optimizers(self):
+        if swa:
+            return self.optimizer
+
         lr_scheduler = {'scheduler': self.lr_scheduler,
                         'monitor': 'val_loss'}
         return [self.optimizer], [lr_scheduler]
-        # return self.optimizer
 
     # hide v_num in progres bar
     def get_progress_bar_dict(self):
@@ -149,22 +154,24 @@ if __name__ == '__main__':
     dm = TimitDataModule()
 
     model = PhonemeClassifier(batch_size, initial_lr)
-    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16)
-        # stochastic_weight_avg=True)
-        # auto_lr_find=True) 
+    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16,
+        stochastic_weight_avg=swa, auto_lr_find=auto_lr_find) 
         # resume_from_checkpoint='lightning_logs/epoch=55-step=3639.ckpt')
 
-    trainer.fit(model, dm)
-    trainer.test(datamodule=dm)
+    if auto_lr_find:
+        trainer.tune(model, dm)
+    else:
+        trainer.fit(model, dm)
+        trainer.test(datamodule=dm)
 
-    confmat = model.confmatMetric.compute()
-    plt.figure(figsize=(15,10))
-    class_names = Phoneme.folded_phoneme_list
-    df_cm = pd.DataFrame(confmat, index=class_names, columns=class_names).astype(int)
-    heatmap = sns.heatmap(df_cm, annot=True, fmt="d")
+        confmat = model.confmatMetric.compute()
+        plt.figure(figsize=(15,10))
+        class_names = Phoneme.folded_phoneme_list
+        df_cm = pd.DataFrame(confmat, index=class_names, columns=class_names).astype(int)
+        heatmap = sns.heatmap(df_cm, annot=True, fmt="d")
 
-    heatmap.yaxis.set_ticklabels(heatmap.yaxis.get_ticklabels(), rotation=0, ha='right',fontsize=15)
-    heatmap.xaxis.set_ticklabels(heatmap.xaxis.get_ticklabels(), rotation=45, ha='right',fontsize=15)
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
-    plt.show()
+        heatmap.yaxis.set_ticklabels(heatmap.yaxis.get_ticklabels(), rotation=0, ha='right',fontsize=15)
+        heatmap.xaxis.set_ticklabels(heatmap.xaxis.get_ticklabels(), rotation=45, ha='right',fontsize=15)
+        plt.ylabel('True label')
+        plt.xlabel('Predicted label')
+        plt.show()

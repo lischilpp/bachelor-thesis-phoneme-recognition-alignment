@@ -30,7 +30,7 @@ class FrameDataset(torch.utils.data.Dataset):
                 # next phoneme
                 phon_idx += 1
                 phon = phonemes[phon_idx]
-            labels.append(Phoneme.symbol_to_index(phon.symbol))
+            labels.append(Phoneme.phoneme_list.index(phon.symbol))
             label_idx += 1
             x += SAMPLES_PER_STRIDE
         return torch.tensor(labels)

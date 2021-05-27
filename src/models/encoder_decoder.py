@@ -15,7 +15,7 @@ class EncoderDecoderModel(nn.Module):
                                        hidden_size=64,
                                        num_layers=2, batch_first=True, bidirectional=True)
         self.dec1 = nn.GRU(input_size=self.enc2.hidden_size*2,
-                                       hidden_size=256,
+                                       hidden_size=512,
                                        num_layers=2, batch_first=True, bidirectional=True)
 
         self.fc1 = nn.Linear(self.dec1.hidden_size*2, self.output_size*4)        
