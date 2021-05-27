@@ -21,9 +21,9 @@ import matplotlib.pyplot as plt
 
 
 num_epochs = 100
-batch_size = 64
-initial_lr = 0.0005
-lr_patience = 1
+batch_size = 16
+initial_lr = 0.001
+lr_patience = 0
 lr_reduce_factor = 0.5
 
 
@@ -47,7 +47,7 @@ class TimitDataModule(pl.LightningDataModule):
 
         self.loader_args = {'batch_size': batch_size,
                             'collate_fn': collate_fn,
-                            'num_workers': 12,
+                            'num_workers': 10,
                             'pin_memory': True}
 
     def train_dataloader(self):
@@ -75,8 +75,8 @@ class PhonemeClassifier(pl.LightningModule):
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.lr)
         self.confmatMetric = ConfusionMatrix(num_classes=Phoneme.phoneme_count())
-        # self.lr_scheduler = ReduceLROnPlateau(
-        #     self.optimizer, factor=lr_reduce_factor, patience=lr_patience)
+        self.lr_scheduler = ReduceLROnPlateau(
+            self.optimizer, factor=lr_reduce_factor, patience=lr_patience)
 
     def on_epoch_end(self):
         self.log('lr', self.optimizer.param_groups[0]['lr'], prog_bar=True)
@@ -88,13 +88,30 @@ class PhonemeClassifier(pl.LightningModule):
         self.log('train_loss', loss)
         return loss
 
+    def glottal_stops_to_silence(self, preds, labels):
+        q_idx = Phoneme.symbol_to_index('q')
+        sil_idx = Phoneme.symbol_to_index('sil')
+        preds[preds == q_idx] = sil_idx
+        labels[labels == q_idx] = sil_idx
+        return preds, labels
+
+    def foldPhonemeIndizes(self, indizes):
+        for i in range(indizes.size(0)):
+            symbol = Phoneme.index_to_symbol(indizes[i])
+            indizes[i] = Phoneme.symbol_to_index(Phoneme.symbol_to_folded.get(symbol, symbol))
+        return indizes
+
     def validation_step(self, batch, _):
         (specgrams, lengths), labels = batch
         specgrams = specgrams
         labels = labels
         outputs = self.model(specgrams, lengths, self.device)
         loss = self.criterion(outputs, labels)
-        acc = FM.accuracy(torch.argmax(outputs, dim=1), labels)
+        preds = torch.argmax(outputs, dim=1)
+        # preds, labels = self.glottal_stops_to_silence(preds, labels)
+        preds = self.foldPhonemeIndizes(preds)
+        labels = self.foldPhonemeIndizes(labels)
+        acc = FM.accuracy(preds, labels)
         metrics = {'val_loss': loss, 'val_acc': acc}
         self.log_dict(metrics, prog_bar=True)
         return metrics
@@ -104,16 +121,20 @@ class PhonemeClassifier(pl.LightningModule):
         specgrams = specgrams
         outputs = self.model(specgrams, lengths, self.device)
         loss = self.criterion(outputs, labels)
-        acc = FM.accuracy(torch.argmax(outputs, dim=1), labels)
+        preds = torch.argmax(outputs, dim=1)
+        # preds, labels = self.glottal_stops_to_silence(preds, labels)
+        preds = self.foldPhonemeIndizes(preds)
+        labels = self.foldPhonemeIndizes(labels)
+        acc = FM.accuracy(preds, labels)
         self.confmatMetric(torch.argmax(outputs, dim=1), labels)
         metrics = {'test_loss': loss, 'test_acc': acc}
         self.log_dict(metrics, prog_bar=True)
 
     def configure_optimizers(self):
-        # lr_scheduler = {'scheduler': self.lr_scheduler,
-        #                 'monitor': 'val_loss'}
-        # return [self.optimizer], [lr_scheduler]
-        return self.optimizer
+        lr_scheduler = {'scheduler': self.lr_scheduler,
+                        'monitor': 'val_loss'}
+        return [self.optimizer], [lr_scheduler]
+        # return self.optimizer
 
     # hide v_num in progres bar
     def get_progress_bar_dict(self):
@@ -127,7 +148,10 @@ if __name__ == '__main__':
     dm = TimitDataModule()
 
     model = PhonemeClassifier(batch_size, initial_lr)
-    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16, stochastic_weight_avg=True)#, resume_from_checkpoint='lightning_logs/version_27/checkpoints/epoch=55-step=3639.ckpt')
+    trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16)
+        # stochastic_weight_avg=True)
+        # auto_lr_find=True) 
+        # resume_from_checkpoint='lightning_logs/epoch=55-step=3639.ckpt')
 
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)

@@ -62,7 +62,7 @@ class Phoneme():
             phonemes = []
             for row in reader:
                 symbol = row[2]
-                symbol = Phoneme.symbol_to_folded.get(symbol, symbol)
+                # symbol = Phoneme.symbol_to_folded.get(symbol, symbol)
                 start = int(row[0])
                 stop = int(row[1])
                 phoneme = Phoneme(start, stop, symbol)

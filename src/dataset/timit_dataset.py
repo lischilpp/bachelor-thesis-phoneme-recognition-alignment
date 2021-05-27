@@ -19,7 +19,8 @@ class TimitDataset(torch.utils.data.Dataset):
         recording_paths = []
         train_test_str = "TEST" if self.test else "TRAIN"
         for path in (TIMIT_PATH / train_test_str).rglob('*.WAV'):
-            # if not path.name.startswith('SA'):
+            if EXCLUDE_SA_FILES and path.name.startswith('SA'):
+                continue
             recording_paths.append(str(path.relative_to(TIMIT_PATH))[:-4])
         return recording_paths
 

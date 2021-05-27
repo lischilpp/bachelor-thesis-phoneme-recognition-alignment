@@ -18,7 +18,7 @@ time_stretch_min = 0.85
 time_stretch_max = 1.25
 
 frequency_mask_probability = 1
-frequency_mask_height = 10
+frequency_mask_height = 20
 
 time_mask_probability = 1
 time_mask_frame_probability = 0.2

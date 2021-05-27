@@ -43,6 +43,13 @@ class FrameDataset(torch.utils.data.Dataset):
             num_mel_bins=N_MELS)
         return fbank
 
+    def remove_glottal_stops(self, fbank, labels):
+        non_glottal_indices = torch.nonzero(labels.ne(-1))
+        fbank = fbank[non_glottal_indices.repeat_interleave(
+            FRAME_RESOLUTION)].squeeze(1)
+        labels = labels[non_glottal_indices].squeeze(1)
+        return fbank, labels
+
     def __getitem__(self, index):
         record = self.root_ds[index]
         if self.augment:
@@ -53,6 +60,8 @@ class FrameDataset(torch.utils.data.Dataset):
             fbank = augment_fbank(fbank)        
         labels = self.get_frame_labels(phonemes, len(waveform))
         fbank = fbank[:labels.size(0) * FRAME_RESOLUTION]
+        # if self.augment:
+        #     fbank, labels = self.remove_glottal_stops(fbank, labels)
         return fbank, labels
 
     def __len__(self):

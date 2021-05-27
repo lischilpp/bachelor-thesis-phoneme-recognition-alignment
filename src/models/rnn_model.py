@@ -37,7 +37,7 @@ class RNNModel(nn.Module):
             out2 = out.unsqueeze(0)
             # frame classification
             # features of all frames of an audiofile passed into BiGRU (many-to-many)
-            h02 = torch.zeros(4, 1,
+            h02 = torch.zeros(self.num_layers1*2, 1,
                               self.hidden_size2, device=device)
             out2, _ = self.rnn2(out2, h02)
             for j in range(lengths[i] // FRAME_RESOLUTION):
