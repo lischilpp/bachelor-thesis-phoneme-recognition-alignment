@@ -13,7 +13,7 @@ AUGMENT_DATASET = True
 FRAME_LENGTH = 25  # in ms
 FRAME_RESOLUTION = 10
 STRIDE = 10  # in ms
-N_MELS = 89
+N_MELS = 80
 SAMPLE_RATE = 16000
 
 # semi-constants (depend on previous constants)

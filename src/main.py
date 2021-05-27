@@ -6,6 +6,7 @@ from models.cnn_model import CNNModel
 from models.rnn_model import RNNModel
 from models.rnn_frequency_model import RNNFrequencyModel
 from models.rnn_waveform_model import RNNWaveformModel
+from models.encoder_decoder import EncoderDecoderModel
 from settings import *
 from pytorch_lightning.metrics import functional as FM
 import pytorch_lightning as pl

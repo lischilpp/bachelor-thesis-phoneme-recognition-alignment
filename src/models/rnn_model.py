@@ -40,7 +40,7 @@ class RNNModel(nn.Module):
             h02 = torch.zeros(self.num_layers1*2, 1,
                               self.hidden_size2, device=device)
             out2, _ = self.rnn2(out2, h02)
-            for j in range(lengths[i] // FRAME_RESOLUTION):
-                predictions[p] = self.fc(out2[0][j])
-                p += 1
+            out2 = self.fc(out2[0])
+            predictions[p:p+out2.size(0), :] = out2
+            p += out2.size(0)
         return predictions
