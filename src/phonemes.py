@@ -3,23 +3,6 @@ import csv
 
 class Phoneme():
 
-    symbol_to_folded = {
-        'ao': 'aa',
-        'axr': 'er',
-        'el': 'l',
-        'em': 'm',
-        'eng': 'ng',
-        'hv': 'hh',
-        'ix': 'ih',
-        'sh': 'zh',
-        'ux': 'uw',
-        **dict.fromkeys(['en', 'nx'], 'n'),
-        **dict.fromkeys(['ax', 'ax-h'], 'ah'),
-        **dict.fromkeys(['pcl', 'tcl', 'kcl',
-                         'bcl', 'dcl', 'gcl',
-                         'epi', 'h#', 'pau'], 'sil')
-    }
-
     phoneme_list = [
         'aa', 'ae', 'ah', 'ao', 'aw', 'ax', 'ax-h', 'axr',
         'ay', 'b', 'bcl', 'ch', 'd', 'dcl', 'dh', 'dx', 'eh',
@@ -30,9 +13,49 @@ class Phoneme():
         'uh', 'uw', 'ux', 'v', 'w', 'y', 'z', 'zh'
     ]
 
+    symbol_to_folded = {
+        'ux': 'uw',
+        'axr': 'er',
+        'ax-h': 'ax',
+        'em': 'm',
+        'nx': 'n',
+        'eng': 'ng',
+        'hv': 'hh',
+        **dict.fromkeys(['pcl', 'tcl', 'kcl', 'qcl'], 'cl'),
+        **dict.fromkeys(['bcl', 'dcl', 'gcl'], 'vcl'),
+        **dict.fromkeys(['h#', '#h', 'pau'], 'sil')
+    }
+
     folded_phoneme_list = [
-        'aa', 'ae', 'ah', 'aw', 'ay', 'b', 'ch', 'd', 'dh',
-        'dx', 'eh', 'er', 'ey', 'f', 'g', 'hh', 'ih', 'iy',
+        'aa', 'ae', 'ah', 'ao', 'aw', 'ax', 'ay', 'b', 'ch',
+        'cl', 'd', 'dh', 'dx', 'eh', 'el', 'en', 'epi', 'er',
+        'ey', 'f', 'g', 'hh', 'ih', 'ix', 'iy', 'jh', 'k',
+        'l', 'm', 'n', 'ng', 'ow', 'oy', 'p', 'r', 's', 'sh',
+        'sil', 't', 'th', 'uh', 'uw', 'v', 'vcl', 'w',
+        'y', 'z', 'zh'
+    ]
+
+    folded_phoneme_weights = [
+        1.05, 1.17, 1.02, 1.96, 4.25, 0.94, 1.52, 1.4, 3.83, 0.29,
+        1.16, 1.25, 1.49, 0.88, 3.82, 5.77, 4.0, 0.69, 1.33, 1.38,
+        2.28, 1.73, 0.52, 0.49, 0.6, 2.87, 0.76, 0.63, 0.83, 0.42,
+        2.45, 1.75, 8.17, 1.15, 0.61, 0.47, 2.75, 0.23, 0.75, 4.07,
+        6.13, 1.49, 1.51, 0.5, 1.26, 2.67, 0.81, 5.75
+    ]
+
+    symbol_to_folded_group = {
+        **dict.fromkeys(['cl', 'vcl', 'epi'], 'sil'),
+        'el': 'l',
+        'en': 'n',
+        'sh': 'zh',
+        'ao': 'aa',
+        'ih': 'ix',
+        'ah': 'ax'
+    }
+
+    folded_group_phoneme_list = [
+        'aa', 'ae', 'aw', 'ax', 'ay', 'b', 'ch', 'd', 'dh',
+        'dx', 'eh', 'er', 'ey', 'f', 'g', 'hh', 'ix', 'iy',
         'jh', 'k', 'l', 'm', 'n', 'ng', 'ow', 'oy', 'p', 'r',
         's', 'sil', 't', 'th', 'uh', 'uw', 'v', 'w', 'y', 'z', 'zh'
     ]
@@ -53,7 +76,7 @@ class Phoneme():
         return self.__str__()
 
     @classmethod
-    def phoneme_count(cls):
+    def folded_phoneme_count(cls):
         return len(cls.folded_phoneme_list)
 
     @classmethod
