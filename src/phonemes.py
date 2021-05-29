@@ -1,4 +1,5 @@
 import csv
+import torch
 
 
 class Phoneme():
@@ -35,13 +36,13 @@ class Phoneme():
         'y', 'z', 'zh'
     ]
 
-    folded_phoneme_weights = [
+    folded_phoneme_weights = torch.tensor([
         1.05, 1.17, 1.02, 1.96, 4.25, 0.94, 1.52, 1.4, 3.83, 0.29,
         1.16, 1.25, 1.49, 0.88, 3.82, 5.77, 4.0, 0.69, 1.33, 1.38,
         2.28, 1.73, 0.52, 0.49, 0.6, 2.87, 0.76, 0.63, 0.83, 0.42,
         2.45, 1.75, 8.17, 1.15, 0.61, 0.47, 2.75, 0.23, 0.75, 4.07,
         6.13, 1.49, 1.51, 0.5, 1.26, 2.67, 0.81, 5.75
-    ]
+    ])
 
     symbol_to_folded_group = {
         **dict.fromkeys(['cl', 'vcl', 'epi'], 'sil'),
@@ -78,6 +79,10 @@ class Phoneme():
     @classmethod
     def folded_phoneme_count(cls):
         return len(cls.folded_phoneme_list)
+
+    @classmethod
+    def folded_group_phoneme_count(cls):
+        return len(cls.folded_group_phoneme_list)
 
     @classmethod
     def get_phonemes_from_file(cls, path):

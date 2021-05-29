@@ -22,7 +22,6 @@ frequency_mask_height = 20
 
 time_mask_probability = 1
 time_mask_frame_probability = 0.2
-time_mask_frame_percentage = 0.5
 
 
 def augment_record(record):
@@ -61,12 +60,11 @@ def augment_fbank(fbank):
         fbank = masking(fbank)
     # time mask
     if random.random() < time_mask_probability:
-        for i in range(0, fbank.size(1) - FRAME_RESOLUTION, FRAME_RESOLUTION):
+        for i in range(0, fbank.size(1) - 1, 1):
             if random.random() < time_mask_frame_probability:
-                frame = fbank.narrow(1, i, FRAME_RESOLUTION)
-                masking = T.TimeMasking(time_mask_param=int(
-                    FRAME_RESOLUTION * time_mask_frame_percentage))
-                fbank[:, i:i+FRAME_RESOLUTION] = masking(frame)
+                frame = fbank.narrow(1, i, 1)
+                masking = T.TimeMasking(time_mask_param=1)
+                fbank[:,i:i+1] = masking(frame)
     fbank = fbank.transpose(0, 1)
     return fbank
 

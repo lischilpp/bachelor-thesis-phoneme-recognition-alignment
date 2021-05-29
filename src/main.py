@@ -23,8 +23,8 @@ import matplotlib.pyplot as plt
 
 num_epochs = 100
 batch_size = 32
-initial_lr = 0.0001
-swa = True
+initial_lr = 0.001
+swa = False
 lr_patience = 0
 lr_reduce_factor = 0.5
 auto_lr_find=False
@@ -49,7 +49,7 @@ class TimitDataModule(pl.LightningDataModule):
 
         self.loader_args = {'batch_size': batch_size,
                             'collate_fn': collate_fn,
-                            'num_workers': 10,
+                            'num_workers': 12,
                             'pin_memory': True}
 
     def train_dataloader(self):
@@ -73,10 +73,10 @@ class PhonemeClassifier(pl.LightningModule):
         self.batch_size = batch_size
         self.lr = initial_lr
         self.model = RNNModel(output_size=Phoneme.folded_phoneme_count())
-        self.criterion = nn.CrossEntropyLoss(weight=Phoneme.folded_phoneme_weights)
+        self.criterion = nn.CrossEntropyLoss()# weight=Phoneme.folded_phoneme_weights)
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.lr)
-        self.confmatMetric = ConfusionMatrix(num_classes=Phoneme.folded_phoneme_count())
+        self.confmatMetric = ConfusionMatrix(num_classes=Phoneme.folded_group_phoneme_count())
         if not swa:
             self.lr_scheduler = ReduceLROnPlateau(
                 self.optimizer, factor=lr_reduce_factor, patience=lr_patience)
@@ -120,7 +120,7 @@ class PhonemeClassifier(pl.LightningModule):
         preds = self.foldGroupIndices(preds)
         labels = self.foldGroupIndices(labels)
         acc = FM.accuracy(preds, labels)
-        self.confmatMetric(torch.argmax(preds, dim=1), labels)
+        self.confmatMetric(preds, labels)
         metrics = {'test_loss': loss, 'test_acc': acc}
         self.log_dict(metrics, prog_bar=True)
 
@@ -146,7 +146,7 @@ if __name__ == '__main__':
     model = PhonemeClassifier(batch_size, initial_lr)
     trainer = pl.Trainer(gpus=1, max_epochs=num_epochs, precision=16,
         stochastic_weight_avg=swa, auto_lr_find=auto_lr_find)
-        #resume_from_checkpoint='lightning_logs/version_108/checkpoints/epoch=19-step=2599.ckpt')
+        # resume_from_checkpoint='lightning_logs/version_164/checkpoints/epoch=79-step=8319.ckpt')
 
     if auto_lr_find:
         trainer.tune(model, dm)
@@ -156,7 +156,7 @@ if __name__ == '__main__':
 
         confmat = model.confmatMetric.compute()
         plt.figure(figsize=(15,10))
-        class_names = Phoneme.folded_phoneme_list
+        class_names = Phoneme.folded_group_phoneme_list
         df_cm = pd.DataFrame(confmat, index=class_names, columns=class_names).astype(int)
         heatmap = sns.heatmap(df_cm, annot=True, fmt="d")
 
