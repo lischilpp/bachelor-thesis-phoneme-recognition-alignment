@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 
 
 num_epochs = 100
-batch_size = 32
+batch_size = 8
 initial_lr = 0.001
 lr_patience = 1
 lr_reduce_factor = 0.5
@@ -72,7 +72,7 @@ class PhonemeClassifier(pl.LightningModule):
         self.batch_size = batch_size
         self.lr = lr
         self.last_val_loss = float('inf')
-        self.loss_to_high_count = 0
+        self.loss_too_high_count = 0
         self.model = RNNModel(output_size=Phoneme.folded_phoneme_count())
         self.criterion = nn.CrossEntropyLoss()#weight=Phoneme.folded_phoneme_weights)
         self.optimizer = torch.optim.AdamW(
@@ -117,15 +117,15 @@ class PhonemeClassifier(pl.LightningModule):
     def validation_epoch_end(self, val_step_outputs):
         val_loss = sum([output['val_loss'] for output in val_step_outputs])/len(val_step_outputs)
         if val_loss > self.last_val_loss * 0.9999:
-            self.loss_to_high_count += 1
-        if self.loss_to_high_count > lr_patience:
+            self.loss_too_high_count += 1
+        if self.loss_too_high_count > lr_patience:
             self.lr *= lr_reduce_factor
             self.init_cyclic_scheduler()
             self.trainer.lr_schedulers = self.trainer.configure_schedulers(
                 [self.lr_scheduler],
                 monitor='val_loss',
                 is_manual_optimization=False)
-            self.loss_to_high_count=0
+            self.loss_too_high_count=0
 
         self.last_val_loss = val_loss
 
