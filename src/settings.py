@@ -12,7 +12,7 @@ VAL_PERCENTAGE = 0.1
 AUGMENT_DATASET = True
 FRAME_LENGTH = 25  # in ms
 STRIDE = 10  # in ms
-N_MELS = 80
+N_MELS = 89
 SAMPLE_RATE = 16000
 
 # semi-constants (depend on previous constants)

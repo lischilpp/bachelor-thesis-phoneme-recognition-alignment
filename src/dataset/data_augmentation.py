@@ -6,16 +6,16 @@ from torchaudio.sox_effects import apply_effects_tensor
 from settings import *
 
 
-gaussian_noise_probability = 1
-gaussian_noise_strength = 0.001
+gaussian_noise_probability = 0.5
+gaussian_noise_strength = 0.002
 
 pitch_shift_probability = 1
-pitch_shift_min = -4
-pitch_shift_max = 4  # 4 semitones
+pitch_shift_min = -6
+pitch_shift_max = 6  # 4 semitones
 
 time_stretch_probability = 1
-time_stretch_min = 0.85
-time_stretch_max = 1.25
+time_stretch_min = 0.6
+time_stretch_max = 1.4
 
 frequency_mask_probability = 1
 frequency_mask_height = 20

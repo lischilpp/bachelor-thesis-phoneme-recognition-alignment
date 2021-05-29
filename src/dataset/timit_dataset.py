@@ -19,19 +19,22 @@ class TimitDataset(torch.utils.data.Dataset):
         recording_paths = []
         train_test_str = "TEST" if self.test else "TRAIN"
         for path in (TIMIT_PATH / train_test_str).rglob('*.WAV'):
-            if EXCLUDE_SA_FILES and path.name.startswith('SA'):
+            is_sa_file = path.name.startswith('SA')
+            if (EXCLUDE_SA_FILES or self.test) and is_sa_file:
                 continue
-            recording_paths.append(str(path.relative_to(TIMIT_PATH))[:-4])
+            recording_paths.append({
+                'path': str(path.relative_to(TIMIT_PATH))[:-4],
+                'is_sa_file': is_sa_file})
         return recording_paths
 
     def __getitem__(self, index):
         recording_path = self.recording_paths[index]
-        wav_path = TIMIT_PATH / f'{recording_path}.WAV'
-        pn_path = TIMIT_PATH / f'{recording_path}.PHN'
+        wav_path = TIMIT_PATH / f'{recording_path["path"]}.WAV'
+        pn_path = TIMIT_PATH / f'{recording_path["path"]}.PHN'
         waveform, _ = torchaudio.load(wav_path)
         waveform = waveform[0]
         phonemes = Phoneme.get_phonemes_from_file(pn_path)
-        return waveform, phonemes
+        return waveform, phonemes, recording_path['is_sa_file']
 
     def __len__(self):
         return self.n_recordings

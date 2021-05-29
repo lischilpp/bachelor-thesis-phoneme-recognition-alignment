@@ -1,6 +1,7 @@
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import shutil
 
 from dataset.disk_dataset import DiskDataset
 from dataset.timit_dataset import TimitDataset
@@ -17,16 +18,20 @@ train_count = train_val_count - val_count
 train_ds, val_ds = random_split(train_val_ds, [train_count, val_count])
 test_ds = TimitDataset(test=True)
 
+
 print('processing train dataset...')
-TRAIN_PATH.mkdir(exist_ok=True, parents=True)
-DiskDataset.write(train_ds, TRAIN_PATH)
+shutil.rmtree(TRAIN_PATH)
+TRAIN_PATH.mkdir(parents=True)
+DiskDataset.write(train_ds, TRAIN_PATH, exclude_sa_files=False)
 
 print('processing val dataset...')
-VAL_PATH.mkdir(exist_ok=True, parents=True)
+shutil.rmtree(VAL_PATH)
+VAL_PATH.mkdir()
 DiskDataset.write(val_ds, VAL_PATH)
 
 print('processing test dataset...')
-TEST_PATH.mkdir(exist_ok=True, parents=True)
+shutil.rmtree(TEST_PATH)
+TEST_PATH.mkdir()
 DiskDataset.write(test_ds, TEST_PATH)
 
 print('--- DONE ---')

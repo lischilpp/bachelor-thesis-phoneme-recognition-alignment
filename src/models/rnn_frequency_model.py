@@ -8,50 +8,43 @@ class RNNFrequencyModel(nn.Module):
     def __init__(self, output_size):
         super().__init__()
         self.output_size = output_size
-        self.num_layers1 = 2
-        self.num_layers2 = 3
-        self.hidden_size1 = 128
-        self.hidden_size2 = 512
         self.fc1 = nn.Linear(N_MELS, N_MELS)
-        self.fc2 = nn.Linear(2*self.hidden_size1, 2*self.hidden_size1)
         self.rnns1 = [
-            nn.RNN(16, self.hidden_size1,
-                   self.num_layers1, batch_first=True, bidirectional=True).cuda()
+            nn.RNN(input_size=20,
+                   hidden_size=256,
+                   num_layers=2,
+                   batch_first=True, bidirectional=True).cuda()
             for _ in range(4)
         ]
-        self.rnn2 = nn.GRU(1024, self.hidden_size2,
-                           self.num_layers2, batch_first=True, bidirectional=True)
-        self.fc = nn.Linear(self.hidden_size2*2, self.output_size)
+        self.rnn1_output_size = self.rnns1[0].hidden_size*2*len(self.rnns1)
+        self.rnn2 = nn.GRU(input_size=self.rnn1_output_size,
+                           hidden_size=512,
+                           num_layers=3,
+                           batch_first=True, bidirectional=True)
+        self.fc2 = nn.Linear(self.rnn2.hidden_size*2, self.rnn2.hidden_size*2)
+        self.fc = nn.Linear(self.rnn2.hidden_size*2, self.output_size)
 
     def forward(self, batch, lengths, device):
+        
+        batch = self.fc1(batch)
+        batch = batch.unfold(2, 20, 20)
+        out2 = torch.zeros(batch.size(0), batch.size(1), self.rnn1_output_size, device=device)
+        for i in range(4):
+            input = batch[:, :, i, :]
+            h01 = torch.zeros(self.rnns1[0].num_layers*2,
+                              batch.size(0),
+                              self.rnns1[0].hidden_size, device=device)
+            out, _ = self.rnns1[i](input, h01)
+            out2[:, :, i*self.rnns1[0].hidden_size*2:(i+1)*self.rnns1[0].hidden_size*2] = out
+        h0 = torch.zeros(self.rnn2.num_layers*2, batch.size(0),
+                         self.rnn2.hidden_size, device=device)
+        out, _ = self.rnn2(out2, h0)
+        out = self.fc(self.fc2(out))
         predictions = torch.zeros(
-            lengths.sum().item() // FRAME_RESOLUTION, self.output_size, device=device)
+            lengths.sum().item(), self.output_size, device=device)
         p = 0
         for i in range(batch.size(0)):
-            fbank = batch[i][:lengths[i]]
-            frames = fbank.unfold(0, FRAME_RESOLUTION,
-                                  FRAME_RESOLUTION).transpose(1, 2)
-            frames = frames.unfold(2, 16, 16)
-
-            out2 = torch.zeros(frames.size(0), 1024, device=device)
-
-            for j in range(4):
-                h01 = torch.zeros(self.num_layers1*2, frames.size(0),
-                              self.hidden_size1, device=device)
-                input = frames[:, :, j, :]
-                out, _ = self.rnns1[j](input, h01)
-                out = out[:, -1, :]
-                out2[:, 256*j:256*(j+1)] = out
-                out = out.unsqueeze(0)
-            
-            out2 = out2.unsqueeze(0)
-            
-            # frame classification
-            # features of all frames of an audiofile passed into BiGRU (many-to-many)
-            h02 = torch.zeros(2*self.num_layers2, 1,
-                              self.hidden_size2, device=device)
-            out2, _ = self.rnn2(out2, h02)
-            for j in range(lengths[i] // FRAME_RESOLUTION):
-                predictions[p] = self.fc(out2[0][j])
-                p += 1
+            predictions[p:p+lengths[i], :] = out[i][:lengths[i]]
+            p += lengths[i]
+        
         return predictions
