@@ -6,19 +6,19 @@ from torchaudio.sox_effects import apply_effects_tensor
 from settings import *
 
 
-gaussian_noise_probability = 0.5
-gaussian_noise_strength = 0.002
+gaussian_noise_probability = 0
+gaussian_noise_strength = 0.001
 
-pitch_shift_probability = 1
-pitch_shift_min = -6
-pitch_shift_max = 6  # 4 semitones
+pitch_shift_probability = 0
+pitch_shift_min = -3
+pitch_shift_max = 3  # 4 semitones
 
-time_stretch_probability = 1
-time_stretch_min = 0.6
-time_stretch_max = 1.4
+time_stretch_probability = 0
+time_stretch_min = 0.8
+time_stretch_max = 1.2
 
 frequency_mask_probability = 1
-frequency_mask_height = 20
+frequency_mask_height = 10
 
 time_mask_probability = 1
 time_mask_frame_probability = 0.2
@@ -62,9 +62,7 @@ def augment_fbank(fbank):
     if random.random() < time_mask_probability:
         for i in range(0, fbank.size(1) - 1, 1):
             if random.random() < time_mask_frame_probability:
-                frame = fbank.narrow(1, i, 1)
-                masking = T.TimeMasking(time_mask_param=1)
-                fbank[:,i:i+1] = masking(frame)
+                fbank[:,i:i+1] = 0
     fbank = fbank.transpose(0, 1)
     return fbank
 

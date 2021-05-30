@@ -2,11 +2,8 @@ from pytorch_lightning.tuner.lr_finder import lr_find
 from phonemes import Phoneme
 from dataset.disk_dataset import DiskDataset
 from dataset.frame_dataset import FrameDataset
-from models.cnn_model import CNNModel
-from models.rnn_model import RNNModel
-from models.rnn_frequency_model import RNNFrequencyModel
-from models.rnn_waveform_model import RNNWaveformModel
-from models.encoder_decoder import EncoderDecoderModel
+from models.gru import GRUModel
+from models.ligru import LiGRUModel
 from settings import *
 from pytorch_lightning.metrics import functional as FM
 import pytorch_lightning as pl
@@ -22,9 +19,9 @@ import matplotlib.pyplot as plt
 
 
 num_epochs = 100
-batch_size = 8
+batch_size = 64
 initial_lr = 0.001
-lr_patience = 1
+lr_patience = 0
 lr_reduce_factor = 0.5
 auto_lr_find=False
 
@@ -73,7 +70,7 @@ class PhonemeClassifier(pl.LightningModule):
         self.lr = lr
         self.last_val_loss = float('inf')
         self.loss_too_high_count = 0
-        self.model = RNNModel(output_size=Phoneme.folded_phoneme_count())
+        self.model = GRUModel(output_size=Phoneme.folded_phoneme_count())
         self.criterion = nn.CrossEntropyLoss()#weight=Phoneme.folded_phoneme_weights)
         self.optimizer = torch.optim.AdamW(
             self.parameters(), lr=self.lr)
@@ -100,15 +97,21 @@ class PhonemeClassifier(pl.LightningModule):
         self.log('lr', self.optimizer.param_groups[0]['lr'], prog_bar=True)
         return loss
 
+    def remove_silences(self, preds, labels):
+        sil_idx = Phoneme.folded_phoneme_list.index('sil')
+        non_glottal_indices = torch.nonzero(labels.ne(sil_idx))
+        preds = preds[non_glottal_indices]
+        labels = labels[non_glottal_indices]
+        return preds, labels
+
     def validation_step(self, batch, _):
         (specgrams, lengths), labels = batch
-        specgrams = specgrams
-        labels = labels
         outputs = self.model(specgrams, lengths, self.device)
         loss = self.criterion(outputs, labels)
         preds = torch.argmax(outputs, dim=1)
         preds = self.foldGroupIndices(preds)
         labels = self.foldGroupIndices(labels)
+        # preds, labels = self.remove_silences(preds, labels)
         acc = FM.accuracy(preds, labels)
         metrics = {'val_loss': loss, 'val_acc': acc}
         self.log_dict(metrics, prog_bar=True)
@@ -137,6 +140,7 @@ class PhonemeClassifier(pl.LightningModule):
         preds = torch.argmax(outputs, dim=1)
         preds = self.foldGroupIndices(preds)
         labels = self.foldGroupIndices(labels)
+        # preds, labels = self.remove_silences(preds, labels)
         acc = FM.accuracy(preds, labels)
         self.confmatMetric(preds, labels)
         metrics = {'test_loss': loss, 'test_acc': acc}
