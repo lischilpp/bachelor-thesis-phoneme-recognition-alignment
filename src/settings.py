@@ -4,12 +4,14 @@ from pathlib import Path
 TIMIT_PATH = Path('../data/timit')
 DATA_PATH = Path('../data')
 TRAIN_PATH = DATA_PATH / 'train'
-TEST_PATH = DATA_PATH / 'test'
+CORE_TEST_PATH = DATA_PATH / 'core_test'
+FULL_TEST_PATH = DATA_PATH / 'full_test'
 VAL_PATH = DATA_PATH / 'val'
 
 EXCLUDE_SA_FILES=True
+AUGMENT_DATASET = False
+USE_FULL_TEST_SET = False
 VAL_PERCENTAGE = 0.05
-AUGMENT_DATASET = True
 FRAME_LENGTH = 25  # in ms
 STRIDE = 10  # in ms
 N_MELS = 89

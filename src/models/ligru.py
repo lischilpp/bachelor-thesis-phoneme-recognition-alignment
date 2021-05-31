@@ -17,18 +17,22 @@ class LiGRUModel(nn.Module):
                            nonlinearity='tanh',
                            normalization='None',
                            bidirectional=True)
-        self.rnn = torch.jit.script(self.rnn)
-        self.rnn.cuda()
         self.fc3 = nn.Linear(self.rnn.hidden_size*2, self.output_size)
 
-    def forward(self, batch, lengths, device):
+    def helper(self, confs):
+        batch = confs[0]
+        lengths = confs[1]
         out, _ = self.rnn(batch)
         out = self.fc3(out)
         predictions = torch.zeros(
-            lengths.sum().item(), self.output_size, device=device)
+            lengths.sum().item(), self.output_size)
         p = 0
         for i in range(batch.size(0)):
             predictions[p:p+lengths[i], :] = out[i][:lengths[i]]
             p += lengths[i]
         
         return predictions
+
+    def forward(self, *confs):
+        return helper(list(confs))
+        

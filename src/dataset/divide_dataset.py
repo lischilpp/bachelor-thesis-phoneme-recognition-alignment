@@ -20,18 +20,28 @@ test_ds = TimitDataset(test=True)
 
 
 print('processing train dataset...')
-shutil.rmtree(TRAIN_PATH)
+shutil.rmtree(TRAIN_PATH, ignore_errors=True)
 TRAIN_PATH.mkdir(parents=True)
 DiskDataset.write(train_ds, TRAIN_PATH, exclude_sa_files=False)
 
 print('processing val dataset...')
-shutil.rmtree(VAL_PATH)
+shutil.rmtree(VAL_PATH, ignore_errors=True)
 VAL_PATH.mkdir()
 DiskDataset.write(val_ds, VAL_PATH)
 
 print('processing test dataset...')
-shutil.rmtree(TEST_PATH)
-TEST_PATH.mkdir()
-DiskDataset.write(test_ds, TEST_PATH)
+core_test_ds = []
+for entry in test_ds:
+    _, _, _, is_core_test = entry
+    if is_core_test:
+        core_test_ds.append(entry)
+
+shutil.rmtree(CORE_TEST_PATH, ignore_errors=True)
+CORE_TEST_PATH.mkdir()
+DiskDataset.write(core_test_ds, CORE_TEST_PATH)
+
+shutil.rmtree(FULL_TEST_PATH, ignore_errors=True)
+FULL_TEST_PATH.mkdir()
+DiskDataset.write(test_ds, FULL_TEST_PATH)
 
 print('--- DONE ---')

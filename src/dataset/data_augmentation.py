@@ -14,14 +14,14 @@ pitch_shift_min = -3
 pitch_shift_max = 3  # 4 semitones
 
 time_stretch_probability = 0
-time_stretch_min = 0.8
-time_stretch_max = 1.2
+time_stretch_min = 0.5
+time_stretch_max = 1.5
 
 frequency_mask_probability = 1
-frequency_mask_height = 10
+frequency_mask_height = 20
 
 time_mask_probability = 1
-time_mask_frame_probability = 0.2
+time_mask_frame_probability = 0.3
 
 
 def augment_record(record):
