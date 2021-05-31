@@ -1,6 +1,7 @@
 import string
 import torch
 import torch.nn as nn
+from torch.nn.utils.rnn import pad_sequence
 from torchmetrics import ConfusionMatrix
 import pytorch_lightning as pl
 from pytorch_lightning.metrics import functional as FM
@@ -10,6 +11,7 @@ from settings import *
 from phonemes import Phoneme
 from models.gru import GRUModel
 from models.ligru import LiGRUModel
+from models.phoneme_boundary_detector import PhonemeBoundaryDetector
 
 
 class PhonemeClassifier(pl.LightningModule):
@@ -20,10 +22,11 @@ class PhonemeClassifier(pl.LightningModule):
         self.lr = lr
         self.lr_patience = lr_patience
         self.lr_reduce_factor = lr_reduce_factor
-        self.last_val_loss = float('inf')
-        self.loss_too_high_count = 0
+        self.last_val_PER = float('inf')
+        self.PER_too_high_count = 0
         self.num_classes = Phoneme.folded_phoneme_count()
         self.model = GRUModel(output_size=self.num_classes)
+        self.phoneme_boundary_detector = PhonemeBoundaryDetector()
         self.criterion = nn.CrossEntropyLoss()#weight=Phoneme.folded_phoneme_weights)
         self.optimizer = torch.optim.AdamW(
             self.parameters(), lr=self.lr, amsgrad=True)
@@ -62,19 +65,19 @@ class PhonemeClassifier(pl.LightningModule):
         return metrics
 
     def validation_epoch_end(self, val_step_outputs):
-        val_loss = sum([output['val_loss'] for output in val_step_outputs])/len(val_step_outputs)
-        if val_loss > self.last_val_loss * 0.9999:
-            self.loss_too_high_count += 1
-        if self.loss_too_high_count > self.lr_patience:
+        val_PER = sum([output['val_PER'] for output in val_step_outputs])/len(val_step_outputs)
+        if val_PER > self.last_val_PER * 0.9999:
+            self.PER_too_high_count += 1
+        if self.PER_too_high_count > self.lr_patience:
             self.lr *= self.lr_reduce_factor
             self.init_cyclic_scheduler()
             self.trainer.lr_schedulers = self.trainer.configure_schedulers(
                 [self.lr_scheduler],
                 monitor='val_PER',
                 is_manual_optimization=False)
-            self.loss_too_high_count=0
+            self.PER_too_high_count=0
 
-        self.last_val_loss = val_loss
+        self.last_val_PER = val_PER
 
     def test_step(self, batch, _):
         loss, acc, per = self.calculate_metrics(batch, per=True, update_conf_mat=True)
@@ -94,19 +97,24 @@ class PhonemeClassifier(pl.LightningModule):
         preds_folded = self.foldGroupIndices(preds, lengths)
         labels_folded = self.foldGroupIndices(labels, lengths)
 
+        pn_labels_correct = self.get_phoneme_labels(labels_folded, lengths)
+        print(pad_sequence(outputs, batch_first=True).shape)
+        boundaries = self.phoneme_boundary_detector(pad_sequence(outputs, batch_first=True), lengths, self.device)
+        print(boundaries)
+        exit()
+
+        pn_labels_pred = self.get_phoneme_labels(preds_folded, lengths, boundaries.long().cpu())
+
         loss = self.criterion(flattened_outputs, flattened_labels)
         acc = FM.accuracy(torch.cat(preds_folded), torch.cat(labels_folded))
 
-        if per or update_conf_mat:
-            pn_labels_correct = self.get_phoneme_labels(labels_folded, lengths)
-            pn_labels_pred = self.get_phoneme_labels(preds_folded, lengths)
-            if per:
-                per_value = levenshtein_distance(
-                    self.intarray_to_unique_string(pn_labels_pred),
-                    self.intarray_to_unique_string(pn_labels_correct)) / len(pn_labels_correct)
-                return loss, acc, per_value
-            if update_conf_mat:
-                self.confmatMetric(pn_labels_correct, pn_labels_pred)
+        if per:
+            per_value = levenshtein_distance(
+                self.intarray_to_unique_string(pn_labels_pred),
+                self.intarray_to_unique_string(pn_labels_correct)) / len(pn_labels_correct)
+            return loss, acc, per_value
+        if update_conf_mat:
+            self.confmatMetric(pn_labels_correct, pn_labels_pred)
 
         return loss, acc
     
@@ -122,8 +130,9 @@ class PhonemeClassifier(pl.LightningModule):
                      boundaries[i].append(j)
         return boundaries
 
-    def get_phoneme_labels(self, segment_labels, lengths):
-        boundaries = self.get_phoneme_boundaries(segment_labels, lengths)
+    def get_phoneme_labels(self, segment_labels, lengths, boundaries=None):
+        if boundaries is None:
+            boundaries = self.get_phoneme_boundaries(segment_labels, lengths)
         pn_labels = []
         for i in range(len(segment_labels)):
             segments = torch.tensor_split(segment_labels[i], boundaries[i])

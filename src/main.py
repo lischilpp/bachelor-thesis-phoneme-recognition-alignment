@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 
 num_epochs = 100
-batch_size = 32
+batch_size = 64
 initial_lr = 0.001
 lr_patience = 1
 lr_reduce_factor = 0.5
@@ -27,7 +27,7 @@ if __name__ == '__main__':
                          auto_lr_find=auto_lr_find,
                          gradient_clip_val=0.5,
                          callbacks=[checkpoint_callback],
-                         accumulate_grad_batches=2,
+                         #accumulate_grad_batches=2,
                          precision=16)
         # resume_from_checkpoint='lightning_logs/version_164/checkpoints/epoch=79-step=8319.ckpt')
 
@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
         confmat = model.confmatMetric.compute()
         plt.figure(figsize=(15,10))
-        class_names = Phoneme.folded_phoneme_list
+        class_names = Phoneme.folded_group_phoneme_list
         df_cm = pd.DataFrame(confmat, index=class_names, columns=class_names).astype(int)
         heatmap = sns.heatmap(df_cm, annot=True, fmt="d")
 
