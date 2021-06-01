@@ -11,7 +11,7 @@ class PhonemeBoundaryDetector(nn.Module):
                            hidden_size=256,
                            num_layers=3,
                            batch_first=True, bidirectional=True)
-        self.fc = nn.Linear(self.rnn.hidden_size*2, 1)
+        self.fc = nn.Linear(self.rnn.hidden_size*2, 2)
 
     def forward(self, batch, lengths, device):
         h0 = torch.zeros(self.rnn.num_layers*2, batch.size(0),
@@ -21,7 +21,7 @@ class PhonemeBoundaryDetector(nn.Module):
         predictions = torch.zeros(lengths.sum().item(), device=device)
         p = 0
         for i in range(batch.size(0)):
-            predictions[p:p+lengths[i]] = torch.round(out[i][:lengths[i]]).flatten()
+            predictions[p:p+lengths[i]] = torch.argmax(out[i][:lengths[i]], dim=1)
             p += lengths[i]
         
         return predictions
