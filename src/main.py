@@ -12,7 +12,7 @@ from dataset.disk_dataset import DiskDataset
 
 
 num_epochs = 100
-batch_size = 48
+batch_size = 32
 initial_lr = 0.001
 lr_patience = 0
 lr_reduce_factor = 0.5
@@ -28,9 +28,8 @@ if __name__ == '__main__':
                               len(dm.train_dataloader()))
     trainer = pl.Trainer(gpus=1,
                          max_epochs=num_epochs,
-                         auto_lr_find=auto_lr_find)
-                        #  gradient_clip_val=0.5,
-                        #  precision=16)
+                         auto_lr_find=auto_lr_find,
+                         gradient_clip_val=0.5)
     # resume_from_checkpoint='lightning_logs/version_468/checkpoints/epoch=7-step=1759.ckpt')
 
     if auto_lr_find:

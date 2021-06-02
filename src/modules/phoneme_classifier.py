@@ -25,7 +25,7 @@ class PhonemeClassifier(pl.LightningModule):
         self.lr_reduce_factor = lr_reduce_factor
         self.steps_per_epoch = steps_per_epoch
         self.lr_reduce_metric = 'val_loss'
-        self.last_reduce_metric_val = float('inf')
+        self.last_lr_metric_val = float('inf')
         self.reduce_metric_too_high_count = 0
         self.num_classes = Phoneme.folded_phoneme_count()
         self.model = GRUModel(output_size=self.num_classes)
@@ -49,20 +49,21 @@ class PhonemeClassifier(pl.LightningModule):
         labels = labels[non_glottal_indices]
         return preds, labels
 
-    def validation_step(self, batch, _):
+    def validation_step(self, batch, step):
         loss, acc, per = self.calculate_metrics(batch, mode='val')
+        self.update_lr(step)
         metrics = {'val_loss': loss, 'val_FER': 1-acc, 'val_PER': per}
         self.log_dict(metrics, prog_bar=True)
         return metrics
 
     def validation_epoch_end(self, val_step_outputs): # plateau scheduler
         reduce_metric_val = sum([output[self.lr_reduce_metric] for output in val_step_outputs])/len(val_step_outputs)
-        if reduce_metric_val > self.last_reduce_metric_val * 0.9999:
+        if reduce_metric_val > self.last_lr_metric_val * 0.95:
             self.reduce_metric_too_high_count += 1
         if self.reduce_metric_too_high_count > self.lr_patience:
             self.lr *= self.lr_reduce_factor
-            self.reduce_metric_too_high_count=0
-        self.last_reduce_metric_val = reduce_metric_val
+            self.reduce_metric_too_high_count = 0
+        self.last_lr_metric_val = reduce_metric_val
 
     def test_step(self, batch, _):
         loss, acc, per = self.calculate_metrics(batch, mode='test')
@@ -72,7 +73,7 @@ class PhonemeClassifier(pl.LightningModule):
     def configure_optimizers(self):
         return self.optimizer
 
-    def update_lr(self, step): # one-cycle lr per epoch
+    def update_lr(self, step, metric_val=None): # one-cycle lr per epoch
         half_steps = self.steps_per_epoch // 2
         min_lr = 1/10 * self.lr
         if step < half_steps:
@@ -112,6 +113,7 @@ class PhonemeClassifier(pl.LightningModule):
         per_value = self.calculate_per(preds_folded, labels_folded, lengths)
         preds_folded = torch.cat(preds_folded)
         labels_folded = torch.cat(labels_folded)
+        # preds_folded, labels_folded = self.remove_silences(preds_folded, labels_folded)
         acc = FM.accuracy(preds_folded, labels_folded)
         
         if mode == 'val':
