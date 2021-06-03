@@ -11,16 +11,17 @@ from settings import *
 from phonemes import Phoneme
 from models.gru import GRUModel
 from models.ligru import LiGRUModel
-from models.phoneme_boundary_detector import PhonemeBoundaryDetector
+from models.phoneme_decorder import PhonemeDecoder
 from dataset.disk_dataset import DiskDataset
 
 
 class PhonemeClassifier(pl.LightningModule):
 
-    def __init__(self, batch_size, lr, lr_patience, lr_reduce_factor, steps_per_epoch):
+    def __init__(self, batch_size, lr, min_lr, lr_patience, lr_reduce_factor, steps_per_epoch):
         super().__init__()
         self.batch_size = batch_size
         self.lr = lr
+        self.min_lr = min_lr
         self.lr_patience = lr_patience
         self.lr_reduce_factor = lr_reduce_factor
         self.steps_per_epoch = steps_per_epoch
@@ -29,6 +30,7 @@ class PhonemeClassifier(pl.LightningModule):
         self.reduce_metric_too_high_count = 0
         self.num_classes = Phoneme.folded_phoneme_count()
         self.model = GRUModel(output_size=self.num_classes)
+        self.phoneme_decoder = PhonemeDecoder(output_size=self.num_classes)
         # self.criterion = nn.CTCLoss(reduction='none')#weight=Phoneme.folded_phoneme_weights)
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.AdamW(
@@ -61,7 +63,7 @@ class PhonemeClassifier(pl.LightningModule):
         if reduce_metric_val > self.last_lr_metric_val * 0.95:
             self.reduce_metric_too_high_count += 1
         if self.reduce_metric_too_high_count > self.lr_patience:
-            self.lr *= self.lr_reduce_factor
+            self.lr = max(self.lr * self.lr_reduce_factor, self.min_lr)
             self.reduce_metric_too_high_count = 0
         self.last_lr_metric_val = reduce_metric_val
 
@@ -86,8 +88,9 @@ class PhonemeClassifier(pl.LightningModule):
 
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels = batch
+        outputs = self.model(fbank)
+        # outputs = self.phoneme_decoder(outputs)
         labels = self.remove_padding(labels, lengths)
-        outputs = self.model(fbank, lengths)
         outputs = self.remove_padding(outputs, lengths)
         # probs = (outputs).transpose(0, 1).log_softmax(2)
         # print('--')
@@ -102,7 +105,6 @@ class PhonemeClassifier(pl.LightningModule):
         # print(loss)
         # if not torch.isfinite(loss):
         #     exit()
-
         loss = self.criterion(torch.cat(outputs), torch.cat(labels))
         if mode == 'train':
             return loss

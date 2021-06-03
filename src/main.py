@@ -14,6 +14,7 @@ from dataset.disk_dataset import DiskDataset
 num_epochs = 100
 batch_size = 32
 initial_lr = 0.001
+min_lr = 1e-8
 lr_patience = 0
 lr_reduce_factor = 0.5
 auto_lr_find=False
@@ -23,14 +24,16 @@ if __name__ == '__main__':
     dm.setup(None)
     model = PhonemeClassifier(batch_size,
                               initial_lr,
+                              min_lr,
                               lr_patience,
                               lr_reduce_factor,
                               len(dm.train_dataloader()))
     trainer = pl.Trainer(gpus=1,
                          max_epochs=num_epochs,
                          auto_lr_find=auto_lr_find,
-                         gradient_clip_val=0.5)
-    # resume_from_checkpoint='lightning_logs/version_468/checkpoints/epoch=7-step=1759.ckpt')
+                         precision=16)
+                        #  gradient_clip_val=0.5)
+    # resume_from_checkpoint='lightning_logs/version_1186/checkpoints/epoch=35-step=3959.ckpt')
 
     if auto_lr_find:
         trainer.tune(model, dm)

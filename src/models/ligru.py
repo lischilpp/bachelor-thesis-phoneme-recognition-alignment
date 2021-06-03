@@ -17,10 +17,11 @@ class LiGRUModel(nn.Module):
                            bidirectional=True)
         self.gru = torch.jit.script(self.gru)
         self.fc = nn.Linear(self.gru.hidden_size*2, self.output_size)
+        self.dropout = nn.Dropout(0.1)
 
     def forward(self, batch, lengths):
         out, _ = self.gru(batch)
         out = self.fc(out)
-        predictions = [out[i][:lengths[i]] for i in range(batch.size(0))]
-        return predictions
+        out = self.dropout(out)
+        return out
         
