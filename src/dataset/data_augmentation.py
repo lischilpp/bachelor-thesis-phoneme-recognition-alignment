@@ -7,15 +7,15 @@ from settings import *
 
 
 gaussian_noise_probability = 0
-gaussian_noise_strength = 0.001
+gaussian_noise_strength = 0.0001
 
 pitch_shift_probability = 0
 pitch_shift_min = -3
 pitch_shift_max = 3  # 4 semitones
 
 time_stretch_probability = 0
-time_stretch_min = 0.5
-time_stretch_max = 1.5
+time_stretch_min = 0.85
+time_stretch_max = 1.25
 
 frequency_mask_probability = 1
 frequency_mask_height = 20
