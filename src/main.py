@@ -5,10 +5,12 @@ from phonemes import Phoneme
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from dataset.disk_dataset import DiskDataset
+
 
 
 num_epochs = 100
@@ -16,7 +18,7 @@ batch_size = 32
 initial_lr = 0.001
 min_lr = 1e-8
 lr_patience = 0
-lr_reduce_factor = 0.5
+lr_reduce_factor = 0.4
 auto_lr_find=False
 
 if __name__ == '__main__':
@@ -31,8 +33,10 @@ if __name__ == '__main__':
     trainer = pl.Trainer(gpus=1,
                          max_epochs=num_epochs,
                          auto_lr_find=auto_lr_find,
-                         precision=16)
-                        #  gradient_clip_val=0.5)
+                         precision=16,
+                         gradient_clip_val=0.5,
+                         callbacks=[ModelCheckpoint(monitor='val_PER'),
+                                    EarlyStopping(monitor='val_PER')])
     # resume_from_checkpoint='lightning_logs/version_1205/checkpoints/epoch=9-step=1099.ckpt')
 
     if auto_lr_find:

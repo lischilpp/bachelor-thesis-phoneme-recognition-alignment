@@ -4,6 +4,7 @@ import torch.nn as nn
 from torch.nn.utils.rnn import pad_sequence
 from torchmetrics import ConfusionMatrix
 import pytorch_lightning as pl
+import torch.nn.functional as F
 from pytorch_lightning.metrics import functional as FM
 from leven import levenshtein
 
@@ -25,13 +26,13 @@ class PhonemeClassifier(pl.LightningModule):
         self.lr_patience = lr_patience
         self.lr_reduce_factor = lr_reduce_factor
         self.steps_per_epoch = steps_per_epoch
-        self.lr_reduce_metric = 'val_loss'
+        self.lr_reduce_metric = 'val_PER'
         self.last_lr_metric_val = float('inf')
         self.reduce_metric_too_high_count = 0
         self.num_classes = Phoneme.folded_phoneme_count()
         self.model = GRUModel(output_size=self.num_classes)
-        self.phoneme_decoder = PhonemeDecoder(output_size=self.num_classes)
-        # self.criterion = nn.CTCLoss(reduction='none')#weight=Phoneme.folded_phoneme_weights)
+        # self.phoneme_decoder = PhonemeDecoder(output_size=self.num_classes)
+        # self.criterion = nn.CTCLoss(blank=self.num_classes, reduction='none')#weight=Phoneme.folded_phoneme_weights)
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.AdamW(
             self.parameters(), lr=self.lr)
@@ -89,29 +90,25 @@ class PhonemeClassifier(pl.LightningModule):
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels = batch
         outputs = self.model(fbank)
-        # outputs = self.phoneme_decoder(outputs)
+        
+        # labels_padded = torch.zeros(fbank.size(0), fbank.size(1))
+        # labels_padded[:, 0:labels.size(1)] = labels
+        # probs = F.log_softmax(outputs, dim=2).transpose(0, 1)
+        # lossv = self.criterion(probs, labels_padded, lengths, lengths//2)
+        # loss = torch.mean(lossv)
         labels = self.remove_padding(labels, lengths)
         outputs = self.remove_padding(outputs, lengths)
-        # probs = (outputs).transpose(0, 1).log_softmax(2)
-        # print('--')
-        # print("x.shape", probs.shape)
-        # print("y.shape", labels.shape)
-        # print("lengths", lengths)
-        # labels = labels.type(torch.int32)
-        # lengths = lengths.type(torch.int32)
-        # lossv = self.criterion(probs, labels, lengths, lengths)
-        # print(lossv)
-        # loss = torch.mean(lossv)
-        # print(loss)
-        # if not torch.isfinite(loss):
-        #     exit()
         loss = self.criterion(torch.cat(outputs), torch.cat(labels))
         if mode == 'train':
             return loss
 
         preds = [torch.argmax(output, dim=1) for output in outputs]
+        # print(torch.max(lengths//2))
+        # print(preds[0].shape)
+        # print(labels[0].shape)
         preds_folded = self.foldGroupIndices(preds, lengths)
         labels_folded = self.foldGroupIndices(labels, lengths)
+        # labels_folded = self.foldGroupIndices(labels, lengths//2)
         per_value = self.calculate_per(preds_folded, labels_folded, lengths)
         preds_folded = torch.cat(preds_folded)
         labels_folded = torch.cat(labels_folded)
@@ -127,8 +124,11 @@ class PhonemeClassifier(pl.LightningModule):
     def calculate_per(self, preds, labels, lengths):
         pn_labels_pred = self.get_phoneme_labels(preds, lengths)
         pn_labels_correct = self.get_phoneme_labels(labels, lengths)
+        # print(pn_labels_correct)
         batch_size = lengths.size(0)
         distances = torch.zeros(batch_size)
+        # print(len(pn_labels_pred[0]))
+        # print(len(pn_labels_correct[0]))
         for i in range(batch_size):
             distances[i] = levenshtein(
                 self.intarray_to_unique_string(pn_labels_pred[i]),
@@ -144,7 +144,7 @@ class PhonemeClassifier(pl.LightningModule):
             pn_labels.append([segment_labels[i][0]])
             pn_labels[i].extend(segment_labels[i][j]
                              for j in range(lengths[i])
-                             if segment_labels[i][j] != segment_labels[i][j-1])
+                             if segment_labels[i][j] != 48 and segment_labels[i][j] != segment_labels[i][j-1])
         return pn_labels
     
     def intarray_to_unique_string(self, intarray):
@@ -153,6 +153,8 @@ class PhonemeClassifier(pl.LightningModule):
     def foldGroupIndices(self, indizes, lengths):
         for i in range(lengths.size(0)):
             for j in range(lengths[i]):
+                if indizes[i][j] == 48: # is blank symbol
+                    continue
                 symbol = Phoneme.folded_phoneme_list[indizes[i][j]]
                 indizes[i][j] = Phoneme.folded_group_phoneme_list.index(Phoneme.symbol_to_folded_group.get(symbol, symbol))
         return indizes

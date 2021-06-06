@@ -16,6 +16,7 @@ class FrameDataset(torch.utils.data.Dataset):
         self.root_ds = root_ds
         self.n_records = len(root_ds)
         self.augment = augment
+        self.i = 0
 
     def get_frame_labels(self, phonemes, n_samples):
         labels = []
@@ -41,6 +42,11 @@ class FrameDataset(torch.utils.data.Dataset):
             frame_length=FRAME_LENGTH,
             frame_shift=STRIDE,
             num_mel_bins=N_MELS)
+        # fbank = kaldi.fbank(
+        #     waveform,
+        #     frame_length=FRAME_LENGTH / 2,
+        #     frame_shift=STRIDE / 2,
+        #     num_mel_bins=N_MELS)
         return fbank
 
     def __getitem__(self, index):
@@ -50,9 +56,8 @@ class FrameDataset(torch.utils.data.Dataset):
         waveform, phonemes = record
         fbank = self.create_fbank(waveform.view(1, -1))
         if self.augment:
-            fbank = augment_fbank(fbank)        
+            fbank = augment_fbank(fbank)   
         labels = self.get_frame_labels(phonemes, len(waveform))
-        fbank = fbank[:labels.size(0)]
         return fbank, labels
 
     def __len__(self):
