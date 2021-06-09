@@ -2,4 +2,5 @@ __pycache__
 .vscode
 lightning_logs
 data
+.data
 src/test.py

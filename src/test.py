@@ -15,36 +15,69 @@
 # plt.imshow(fbank.transpose(0, 1))
 # plt.show()
 
+
+# import torchaudio
+
+# wav_path = 'test.wav'
+# ds = DiskDataset(TRAIN_PATH)
+# waveform, phonemes = ds[400]
+
+# waveform, _ = torchaudio.load(wav_path)
+# waveform = (waveform[0]*1e4+336).int()
+# print(waveform[20000:20020])
+# print("Shape:", tuple(waveform.shape))
+# print(f" - Max:     {waveform.max().item():6.3f}")
+# print(f" - Min:     {waveform.min().item():6.3f}")
+
+import io
 import torch
-import torch.nn as nn
+from torchtext.datasets import WikiText2
+from torchtext.data.utils import get_tokenizer
+from collections import Counter
+from torchtext.vocab import Vocab
 
-probs = torch.tensor(
-[[[-3.6852, -3.8380, -3.8917, -3.8420, -4.1217, -3.5202, -3.8134,
-    -3.3443, -4.5487, -3.8015, -3.9781, -3.0194, -4.0216, -3.5204,
-    -4.2357, -4.2557, -4.6121, -3.9420, -3.7618, -4.0152, -3.7686,
-    -3.2913, -3.7141, -3.9715, -3.3414, -3.7910, -3.5413, -3.7887,
-    -3.9627, -3.7912, -4.6102, -3.8574, -4.7015, -4.1991, -3.4495,
-    -3.6784, -3.7860, -4.4842, -3.9561, -4.3670, -4.5784, -4.1805,
-    -4.8021, -4.1785, -3.1910, -4.4310, -4.5877, -4.8743, -4.7679]],
+train_iter = WikiText2(split='train')
+tokenizer = get_tokenizer('basic_english')
+counter = Counter()
+for line in train_iter:
+    counter.update(tokenizer(line))
+vocab = Vocab(counter)
 
-[[-3.6433, -3.8820, -3.8138, -3.8630, -4.0570, -3.4049, -3.8250,
-    -3.4900, -4.6103, -3.7115, -4.0392, -3.1994, -4.0751, -3.4773,
-    -4.1737, -4.2480, -4.7001, -3.9189, -3.7473, -3.9203, -3.8479,
-    -3.3608, -3.5682, -3.9201, -3.3088, -3.8354, -3.6256, -3.6313,
-    -3.9220, -3.7211, -4.6523, -3.8543, -4.6962, -4.3603, -3.3139,
-    -3.5954, -3.7370, -4.4784, -3.9313, -4.4535, -4.6581, -4.1376,
-    -4.8446, -4.2231, -3.2970, -4.3959, -4.6230, -4.8661, -4.8886]],
+def data_process(raw_text_iter):
+  data = [torch.tensor([vocab[token] for token in tokenizer(item)],
+                       dtype=torch.long) for item in raw_text_iter]
+  return torch.cat(tuple(filter(lambda t: t.numel() > 0, data)))
 
-[[-3.6278, -3.9100, -3.7469, -3.8844, -3.9681, -3.4005, -3.8425,
-    -3.6862, -4.4955, -3.6545, -4.0343, -3.4717, -4.1044, -3.5075,
-    -4.0795, -4.1596, -4.6185, -3.8613, -3.7557, -3.8153, -3.9310,
-    -3.5221, -3.4801, -3.8535, -3.3727, -3.8728, -3.7805, -3.5169,
-    -3.8751, -3.6887, -4.5521, -3.8429, -4.5521, -4.4218, -3.2836,
-    -3.5790, -3.6708, -4.3754, -3.9049, -4.3983, -4.6034, -4.0614,
-    -4.7089, -4.1932, -3.4841, -4.2479, -4.5258, -4.6913, -4.8192]]])
-labels = torch.tensor([[11, 24, 24]])
-lengths = torch.tensor([3])
+train_iter, val_iter, test_iter = WikiText2()
+train_data = data_process(train_iter)
+val_data = data_process(val_iter)
+test_data = data_process(test_iter)
 
-criterion = nn.CTCLoss(blank=48, reduction='none')
-lossv = criterion(probs, labels, lengths, lengths)
-print(lossv)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def batchify(data, bsz):
+    # Divide the dataset into bsz parts.
+    nbatch = data.size(0) // bsz
+    # Trim off any extra elements that wouldn't cleanly fit (remainders).
+    data = data.narrow(0, 0, nbatch * bsz)
+    # Evenly divide the data across the bsz batches.
+    data = data.view(bsz, -1).t().contiguous()
+    return data.to(device)
+
+batch_size = 20
+eval_batch_size = 10
+train_data = batchify(train_data, batch_size)
+val_data = batchify(val_data, eval_batch_size)
+test_data = batchify(test_data, eval_batch_size)
+
+bptt = 35
+def get_batch(source, i):
+    seq_len = min(bptt, len(source) - 1 - i)
+    data = source[i:i+seq_len]
+    target = source[i+1:i+1+seq_len].reshape(-1)
+    return data, target
+
+for batch, i in enumerate(range(0, train_data.size(0) - 1, bptt)):
+    data, targets = get_batch(train_data, i)
+    print(data[0])
+    exit()

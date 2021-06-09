@@ -37,7 +37,7 @@ if __name__ == '__main__':
                          gradient_clip_val=0.5,
                          callbacks=[ModelCheckpoint(monitor='val_PER'),
                                     EarlyStopping(monitor='val_PER')])
-    # resume_from_checkpoint='lightning_logs/version_1205/checkpoints/epoch=9-step=1099.ckpt')
+    # resume_from_checkpoint='lightning_logs/version_1411/checkpoints/epoch=12-step=1429.ckpt')
 
     if auto_lr_find:
         trainer.tune(model, dm)
