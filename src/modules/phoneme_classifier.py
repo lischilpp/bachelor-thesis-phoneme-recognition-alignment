@@ -90,10 +90,12 @@ class PhonemeClassifier(pl.LightningModule):
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels = batch
         fbank = fbank.transpose(0, 1)
-        labels = labels.transpose(0, 1).unsqueeze(2)
-        print(fbank.shape)
-        print(labels.shape)
+        # labels = labels.transpose(0, 1).unsqueeze(2)
+        fbank = fbank / 4 + 2
+        # print(fbank[200][0])
+        # exit()
         outputs = self.model(fbank)
+        outputs = outputs.transpose(0, 1)
         # labels_padded = torch.zeros(fbank.size(0), fbank.size(1))
         # labels_padded[:, 0:labels.size(1)] = labels
         # probs = F.log_softmax(outputs, dim=2).transpose(0, 1)

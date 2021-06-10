@@ -15,14 +15,16 @@ class TransformerModel(nn.Module):
     def __init__(self, output_size):
         super().__init__()
         self.ninp = N_MELS
-        self.nhid = 200
-        self.nlayers = 2
-        self.nhead = 2
-        self.dropout = 0.2
+        self.nhid = 1024
+        self.nlayers = 4
+        self.nhead = 4
+        self.dropout = 0
         self.pos_encoder = PositionalEncoding(self.ninp, self.dropout)
         encoder_layer = TransformerEncoderLayer(self.ninp, self.nhead, self.nhid, self.dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layer, self.nlayers)
         self.decoder = nn.Linear(self.ninp, output_size)
+
+        self.init_weights()
 
     def generate_square_subsequent_mask(self, sz):
         mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
@@ -31,7 +33,6 @@ class TransformerModel(nn.Module):
 
     def init_weights(self):
         initrange = 0.1
-        self.encoder.weight.data.uniform_(-initrange, initrange)
         self.decoder.bias.data.zero_()
         self.decoder.weight.data.uniform_(-initrange, initrange)
 
@@ -47,7 +48,7 @@ class TransformerModel(nn.Module):
 # taken from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
 class PositionalEncoding(nn.Module):
 
-    def __init__(self, d_model, dropout=0.1, max_len=5000):
+    def __init__(self, d_model, dropout=0, max_len=2000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
 
