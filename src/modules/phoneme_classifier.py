@@ -39,6 +39,7 @@ class PhonemeClassifier(pl.LightningModule):
         self.confmatMetric = ConfusionMatrix(num_classes=Phoneme.folded_group_phoneme_count())
 
     def training_step(self, batch, step):
+        self.model.train()
         loss = self.calculate_metrics(batch, mode='train')
         self.update_lr(step)
         self.log('train_loss', loss)
@@ -53,6 +54,7 @@ class PhonemeClassifier(pl.LightningModule):
         return preds, labels
 
     def validation_step(self, batch, step):
+        self.model.eval()
         loss, acc, per = self.calculate_metrics(batch, mode='val')
         self.update_lr(step)
         metrics = {'val_loss': loss, 'val_FER': 1-acc, 'val_PER': per}
@@ -69,6 +71,7 @@ class PhonemeClassifier(pl.LightningModule):
         self.last_lr_metric_val = reduce_metric_val
 
     def test_step(self, batch, _):
+        self.model.eval()
         loss, acc, per = self.calculate_metrics(batch, mode='test')
         metrics = {'test_loss': loss, 'test_FER': 1-acc, 'test_PER': per}
         self.log_dict(metrics, prog_bar=True)
@@ -89,40 +92,28 @@ class PhonemeClassifier(pl.LightningModule):
 
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels = batch
-        fbank = fbank.transpose(0, 1)
-        # labels = labels.transpose(0, 1).unsqueeze(2)
-        fbank = fbank / 4 + 2
-        # print(fbank[200][0])
-        # exit()
-        outputs = self.model(fbank)
-        outputs = outputs.transpose(0, 1)
-        # labels_padded = torch.zeros(fbank.size(0), fbank.size(1))
-        # labels_padded[:, 0:labels.size(1)] = labels
-        # probs = F.log_softmax(outputs, dim=2).transpose(0, 1)
-        # lossv = self.criterion(probs, labels_padded, lengths, lengths//2)
-        # loss = torch.mean(lossv)
+        outputs = self.model(fbank, labels, lengths, self.device)
         labels = self.remove_padding(labels, lengths)
         outputs = self.remove_padding(outputs, lengths)
         loss = self.criterion(torch.cat(outputs), torch.cat(labels))
         if mode == 'train':
             return loss
-        preds = [torch.argmax(output, dim=1) for output in outputs]
-        # print(torch.max(lengths//2))
-        # print(preds[0].shape)
-        # print(labels[0].shape)
-        preds_folded = self.foldGroupIndices(preds, lengths)
-        labels_folded = self.foldGroupIndices(labels, lengths)
-        # labels_folded = self.foldGroupIndices(labels, lengths//2)
-        per_value = self.calculate_per(preds_folded, labels_folded, lengths)
-        preds_folded = torch.cat(preds_folded)
-        labels_folded = torch.cat(labels_folded)
-        # preds_folded, labels_folded = self.remove_silences(preds_folded, labels_folded)
-        acc = FM.accuracy(preds_folded, labels_folded)
+        
+        # preds = [torch.argmax(output, dim=1) for output in outputs]
+        # preds_folded = self.foldGroupIndices(preds, lengths)
+        # labels_folded = self.foldGroupIndices(labels, lengths)
+        # per_value = self.calculate_per(preds_folded, labels_folded, lengths)
+        # preds_folded = torch.cat(preds_folded)
+        # labels_folded = torch.cat(labels_folded)
+        # acc = FM.accuracy(preds_folded, labels_folded)
+
+        acc = float('inf')
+        per_value = float('inf')
         
         if mode == 'val':
             return loss, acc, per_value
 
-        self.confmatMetric(preds_folded, labels_folded)
+        # self.confmatMetric(preds_folded, labels_folded)
         return loss, acc, per_value
     
     def calculate_per(self, preds, labels, lengths):
