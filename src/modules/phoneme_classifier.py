@@ -92,28 +92,31 @@ class PhonemeClassifier(pl.LightningModule):
 
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels = batch
-        outputs = self.model(fbank, labels, lengths, self.device)
+        if mode == 'train':
+            outputs = self.model(fbank, labels, lengths, self.device)
+        else:
+            outputs = self.model.evaluate_input(fbank, lengths, self.device)
         labels = self.remove_padding(labels, lengths)
         outputs = self.remove_padding(outputs, lengths)
-        loss = self.criterion(torch.cat(outputs), torch.cat(labels))
         if mode == 'train':
+            loss = self.criterion(torch.cat(outputs), torch.cat(labels))
             return loss
+
+        loss = 99
         
         # preds = [torch.argmax(output, dim=1) for output in outputs]
-        # preds_folded = self.foldGroupIndices(preds, lengths)
-        # labels_folded = self.foldGroupIndices(labels, lengths)
-        # per_value = self.calculate_per(preds_folded, labels_folded, lengths)
-        # preds_folded = torch.cat(preds_folded)
-        # labels_folded = torch.cat(labels_folded)
-        # acc = FM.accuracy(preds_folded, labels_folded)
-
-        acc = float('inf')
-        per_value = float('inf')
+        preds = outputs
+        preds_folded = self.foldGroupIndices(preds, lengths)
+        labels_folded = self.foldGroupIndices(labels, lengths)
+        per_value = self.calculate_per(preds_folded, labels_folded, lengths)
+        preds_folded = torch.cat(preds_folded)
+        labels_folded = torch.cat(labels_folded)
+        acc = FM.accuracy(preds_folded, labels_folded)
         
         if mode == 'val':
             return loss, acc, per_value
 
-        # self.confmatMetric(preds_folded, labels_folded)
+        self.confmatMetric(preds_folded, labels_folded)
         return loss, acc, per_value
     
     def calculate_per(self, preds, labels, lengths):
