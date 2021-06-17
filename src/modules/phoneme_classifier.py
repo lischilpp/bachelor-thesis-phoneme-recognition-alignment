@@ -96,6 +96,7 @@ class PhonemeClassifier(pl.LightningModule):
             outputs = self.model(fbank, labels, lengths, self.device)
         else:
             outputs = self.model.evaluate_input(fbank, lengths, self.device)
+            print(outputs[0])
         labels = self.remove_padding(labels, lengths)
         outputs = self.remove_padding(outputs, lengths)
         if mode == 'train':

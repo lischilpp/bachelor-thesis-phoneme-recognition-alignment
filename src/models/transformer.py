@@ -43,6 +43,7 @@ class TransformerModel(nn.Module):
         return torch.full((size, size), float('-inf'), device=device).triu(1)
 
     def forward(self, src, tgt, lengths, device):
+        self.transformer.train()
         src = src.transpose(0, 1)
         src_key_padding_mask = self.get_padding_mask(
             lengths, src.size(0), device)
@@ -64,12 +65,14 @@ class TransformerModel(nn.Module):
         return out
 
     def evaluate_input(self, src, lengths, device):
+        self.transformer.eval()
         src = src.transpose(0, 1)
         batch_size = src.size(1)
         src_key_padding_mask = self.get_padding_mask(
             lengths, src.size(0), device)
         tgt_key_padding_mask = src_key_padding_mask.clone()
         memory_key_padding_mask = src_key_padding_mask.clone()
+        memory_mask = self.get_nopeek_mask(src.size(0), device)
 
         src = self.pos_enc(src * math.sqrt(self.d_model))
         src = self.transformer.encoder(src, 
@@ -77,10 +80,9 @@ class TransformerModel(nn.Module):
         
 
         inputs = torch.zeros(src.size(0), batch_size, dtype=torch.long, device=device)
-        for i in range(src.size(0)):
-            tgt = self.embed_tgt(inputs[:i+1])
-            tgt = self.pos_enc(tgt)
-            tgt_mask = self.get_nopeek_mask(i+1, device)
+        for i in range(1, src.size(0)):
+            tgt = self.pos_enc(self.embed_tgt(inputs[:i].transpose(0, 1)).transpose(0, 1) * math.sqrt(self.d_model))
+            tgt_mask = self.get_nopeek_mask(i, device)
             
             # print('--')
             # print(tgt.shape)
@@ -88,12 +90,21 @@ class TransformerModel(nn.Module):
             # print(src_key_padding_mask.shape)
             # exit()
 
+
             out = self.transformer.decoder(tgt=tgt,
                                            memory=src,
                                            tgt_mask=tgt_mask,
-                                           tgt_key_padding_mask=tgt_key_padding_mask[:, :i+1],
+                                        #    memory_mask=memory_mask[:i, :],
+                                           tgt_key_padding_mask=tgt_key_padding_mask[:, :i],
                                            memory_key_padding_mask=memory_key_padding_mask)
-            inputs[i] = self.fc(out).softmax(1)[-1].argmax(dim=1)
+            # print(out.shape)
+            # print(self.fc(out).shape)
+            # print(self.fc(out).softmax(0).shape)
+            # print(self.fc(out).softmax(0)[-1].shape)
+            # print(self.fc(out).softmax(0)[-1].argmax(dim=1).shape)
+            # exit()
+            # print(self.fc(out).softmax(0)[-1])
+            inputs[i] = self.fc(out).softmax(0)[-1].argmax(dim=1)
 
         return inputs.transpose(0, 1)
 
