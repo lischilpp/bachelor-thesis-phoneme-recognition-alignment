@@ -34,7 +34,7 @@ if __name__ == '__main__':
                          max_epochs=num_epochs,
                          auto_lr_find=auto_lr_find,
                          precision=16,
-                         gradient_clip_val=0.1,
+                         gradient_clip_val=0.5,
                          callbacks=[ModelCheckpoint(monitor='val_PER'),
                                     EarlyStopping(monitor='val_PER', patience=3)])
     # resume_from_checkpoint='lightning_logs/version_1411/checkpoints/epoch=12-step=1429.ckpt')
