@@ -92,6 +92,9 @@ class PhonemeClassifier(pl.LightningModule):
 
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels = batch
+        # em = nn.Embedding(48, 256).cuda()
+        # print(em(labels).shape)
+        # exit()
         if mode == 'train':
             outputs = self.model(fbank, labels, lengths, self.device)
         else:

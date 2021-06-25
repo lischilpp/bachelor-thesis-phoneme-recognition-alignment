@@ -33,7 +33,7 @@ class DataModule(pl.LightningDataModule):
 
         self.loader_args = {'batch_size': self.batch_size,
                             'collate_fn': collate_fn,
-                            'num_workers': 12,
+                            'num_workers': 0,
                             'pin_memory': True}
 
     def train_dataloader(self):
@@ -42,7 +42,7 @@ class DataModule(pl.LightningDataModule):
                           **self.loader_args)
 
     def val_dataloader(self):
-        return DataLoader(dataset=self.val_ds,
+        return DataLoader(dataset=torch.utils.data.Subset(self.train_ds, list(range(100))),
                           **self.loader_args)
 
     def test_dataloader(self):
