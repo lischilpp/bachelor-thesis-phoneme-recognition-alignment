@@ -14,8 +14,8 @@ from dataset.disk_dataset import DiskDataset
 
 
 num_epochs = 100
-batch_size = 8
-initial_lr = 0.001
+batch_size = 32
+initial_lr = 0.0001
 min_lr = 1e-8
 lr_patience = 0
 lr_reduce_factor = 0.4

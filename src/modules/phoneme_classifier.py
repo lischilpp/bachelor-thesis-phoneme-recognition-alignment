@@ -34,7 +34,7 @@ class PhonemeClassifier(pl.LightningModule):
         # self.phoneme_decoder = PhonemeDecoder(output_size=self.num_classes)
         # self.criterion = nn.CTCLoss(blank=self.num_classes, reduction='none')#weight=Phoneme.folded_phoneme_weights)
         self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.AdamW(
+        self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.lr)
         self.confmatMetric = ConfusionMatrix(num_classes=Phoneme.folded_group_phoneme_count())
 
@@ -92,31 +92,28 @@ class PhonemeClassifier(pl.LightningModule):
 
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels = batch
-        # em = nn.Embedding(48, 256).cuda()
-        # print(em(labels).shape)
-        # exit()
+        labels_inp = labels[:, :-1]
+        labels_out = labels[:, 1:]
         if mode == 'train':
-            outputs = self.model(fbank, labels, lengths, self.device)
+            outputs = self.model(fbank, labels_inp, lengths, self.device)
         else:
             outputs = self.model.evaluate_input(fbank, lengths, self.device)
+        # print(labels_out.shape)
+        # print(outputs.shape)
 
-        labels = self.remove_padding(labels, lengths)
+        labels_out = self.remove_padding(labels_out, lengths)
         outputs = self.remove_padding(outputs, lengths)
         if mode == 'train':
-            loss = self.criterion(torch.cat(outputs), torch.cat(labels))
+            loss = self.criterion(torch.cat(outputs), torch.cat(labels_out))
             return loss
-        # else:
-        #     print('--')
-        #     print(outputs[0])
-        #     print(labels[0])
 
         loss = 99
         
         # preds = [torch.argmax(output, dim=1) for output in outputs]
         preds = outputs
-        preds_folded = self.foldGroupIndices(preds, lengths)
-        labels_folded = self.foldGroupIndices(labels, lengths)
-        per_value = self.calculate_per(preds_folded, labels_folded, lengths)
+        preds_folded = self.foldGroupIndices(preds, lengths-1)
+        labels_folded = self.foldGroupIndices(labels_out, lengths-1)
+        per_value = self.calculate_per(preds_folded, labels_folded, lengths-1)
         preds_folded = torch.cat(preds_folded)
         labels_folded = torch.cat(labels_folded)
         acc = FM.accuracy(preds_folded, labels_folded)
