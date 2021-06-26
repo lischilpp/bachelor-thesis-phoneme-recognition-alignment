@@ -42,7 +42,7 @@ class DataModule(pl.LightningDataModule):
                           **self.loader_args)
 
     def val_dataloader(self):
-        return DataLoader(dataset=torch.utils.data.Subset(self.train_ds, list(range(100))),
+        return DataLoader(dataset=self.val_ds,#torch.utils.data.Subset(self.train_ds, list(range(100))),
                           **self.loader_args)
 
     def test_dataloader(self):

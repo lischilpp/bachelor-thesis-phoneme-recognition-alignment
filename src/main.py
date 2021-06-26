@@ -49,7 +49,7 @@ if __name__ == '__main__':
         confmat = model.confmatMetric.compute()
         plt.figure(figsize=(15,10))
 
-        class_names = Phoneme.folded_group_phoneme_list + ['SOS', 'EOS']
+        class_names = Phoneme.folded_group_phoneme_list
         df_cm = pd.DataFrame(confmat, index=class_names, columns=class_names).astype(int)
         heatmap = sns.heatmap(df_cm, annot=True, cbar=False, fmt="d")
 

@@ -34,12 +34,12 @@ class PhonemeClassifier(pl.LightningModule):
         # self.phoneme_decoder = PhonemeDecoder(output_size=self.num_classes)
         # self.criterion = nn.CTCLoss(blank=self.num_classes, reduction='none')#weight=Phoneme.folded_phoneme_weights)
         self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.Adam(
+        self.optimizer = torch.optim.AdamW(
             self.parameters(), lr=self.lr)
-        self.confmatMetric = ConfusionMatrix(num_classes=Phoneme.folded_group_phoneme_count()+2)
+        self.confmatMetric = ConfusionMatrix(num_classes=Phoneme.folded_group_phoneme_count())
 
     def training_step(self, batch, step):
-        self.model.train()
+        self.model.set_train()
         loss = self.calculate_metrics(batch, mode='train')
         self.update_lr(step)
         self.log('train_loss', loss)
@@ -54,7 +54,7 @@ class PhonemeClassifier(pl.LightningModule):
         return preds, labels
 
     def validation_step(self, batch, step):
-        self.model.eval()
+        self.model.set_eval()
         loss, acc, per = self.calculate_metrics(batch, mode='val')
         self.update_lr(step)
         metrics = {'val_loss': loss, 'val_FER': 1-acc, 'val_PER': per}
@@ -71,7 +71,7 @@ class PhonemeClassifier(pl.LightningModule):
         self.last_lr_metric_val = reduce_metric_val
 
     def test_step(self, batch, _):
-        self.model.eval()
+        self.model.set_eval()
         loss, acc, per = self.calculate_metrics(batch, mode='test')
         metrics = {'test_loss': loss, 'test_FER': 1-acc, 'test_PER': per}
         self.log_dict(metrics, prog_bar=True)
@@ -92,39 +92,23 @@ class PhonemeClassifier(pl.LightningModule):
 
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels = batch
-        # sos token
-        sos_token = self.num_classes
-        sos_tokens = torch.full((labels.size(0), 1), sos_token, device=self.device)
-        labels_in  = torch.cat((sos_tokens, labels), dim=1)
-        # eos token
-        eos_token = self.num_classes+1
-        eos_zeros = torch.full((labels.size(0), 1), 0, device=self.device)
-        labels_out = torch.cat((labels, eos_zeros), dim=1)
-        for i in range(lengths.size(0)):
-            labels_out[i, lengths[i]] = eos_token
+
+        fbank = fbank / 4 + 2
+
+        out = self.model(fbank, lengths, self.device)
+
+        labels = self.remove_padding(labels, lengths)
+        out = self.remove_padding(out, lengths)
+
+        loss = self.criterion(torch.cat(out), torch.cat(labels))
 
         if mode == 'train':
-            outputs = self.model(fbank, labels_in, lengths, self.device)
-        else:
-            outputs = self.model.evaluate_input(fbank, lengths, self.device)
-
-        # print(fbank.shape)
-        # print(outputs.shape)
-        labels_out = self.remove_padding(labels_out, lengths)
-        outputs = self.remove_padding(outputs, lengths)
-
-        if mode == 'train':
-            loss = self.criterion(torch.cat(outputs), torch.cat(labels_out))
-            # loss = self.criterion(outputs.flatten(), labels.flatten())
             return loss
-
-        loss = 99
         
-        # preds = [torch.argmax(output, dim=1) for output in outputs]#
+        preds = [o.softmax(1).argmax(1) for o in out]
         
-        preds = outputs
         preds_folded = self.foldGroupIndices(preds, lengths)
-        labels_folded = self.foldGroupIndices(labels_out, lengths)
+        labels_folded = self.foldGroupIndices(labels, lengths)
         per_value = self.calculate_per(preds_folded, labels_folded, lengths)
         preds_folded = torch.cat(preds_folded)
         labels_folded = torch.cat(labels_folded)
@@ -139,11 +123,8 @@ class PhonemeClassifier(pl.LightningModule):
     def calculate_per(self, preds, labels, lengths):
         pn_labels_pred = self.get_phoneme_labels(preds, lengths)
         pn_labels_correct = self.get_phoneme_labels(labels, lengths)
-        # print(pn_labels_correct)
         batch_size = lengths.size(0)
         distances = torch.zeros(batch_size)
-        # print(len(pn_labels_pred[0]))
-        # print(len(pn_labels_correct[0]))
         for i in range(batch_size):
             distances[i] = levenshtein(
                 self.intarray_to_unique_string(pn_labels_pred[i]),
@@ -168,12 +149,6 @@ class PhonemeClassifier(pl.LightningModule):
     def foldGroupIndices(self, indizes, lengths):
         for i in range(lengths.size(0)):
             for j in range(lengths[i]):
-                if indizes[i][j] == self.num_classes:
-                    indizes[i][j] = 39
-                    continue
-                if indizes[i][j] == self.num_classes+1:
-                    indizes[i][j] = 40
-                    continue
                 symbol = Phoneme.folded_phoneme_list[indizes[i][j]]
                 indizes[i][j] = Phoneme.folded_group_phoneme_list.index(Phoneme.symbol_to_folded_group.get(symbol, symbol))
         return indizes
