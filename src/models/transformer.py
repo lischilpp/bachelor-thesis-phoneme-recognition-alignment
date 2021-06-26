@@ -21,10 +21,10 @@ class TransformerModel(nn.Module):
         self.nhead = 2
         self.num_encoder_layers = 2
         self.num_decoder_layers = 2
-        self.dim_feedforward = 1024
+        self.dim_feedforward = 2048
         self.trans_dropout = 0.1
 
-        self.embed_tgt = nn.Embedding(self.num_classes+1, self.d_model)
+        self.embed_tgt = nn.Embedding(self.num_classes+2, self.d_model)
         self.pos_enc = PositionalEncoding(
             self.d_model,
             self.pos_dropout,
@@ -37,7 +37,7 @@ class TransformerModel(nn.Module):
             self.num_decoder_layers,
             self.dim_feedforward,
             self.trans_dropout)
-        self.linear = nn.Linear(self.d_model, self.num_classes)
+        self.linear = nn.Linear(self.d_model, self.num_classes+2)
 
     def get_padding_mask(self, lengths, padded_length, device):
         mask = torch.zeros(lengths.size(0), padded_length,
@@ -65,7 +65,7 @@ class TransformerModel(nn.Module):
 
         out = self.transformer(src,
                                tgt,
-                            #    src_mask=src_nopeek_mask,
+                               src_mask=src_nopeek_mask,
                                tgt_mask=tgt_nopeek_mask,
                                src_key_padding_mask=src_padding_mask,
                                tgt_key_padding_mask=tgt_padding_mask,
@@ -76,33 +76,35 @@ class TransformerModel(nn.Module):
 
     def evaluate_input(self, src, lengths, device):
         self.transformer.eval()
+        
         batch_size = src.size(0)
         seq_len = src.size(1)
         src_padding_mask = self.get_padding_mask(
             lengths, seq_len, device)
         tgt_padding_mask = self.get_padding_mask(
-            lengths, seq_len-1, device)
+            lengths, seq_len, device)
         src_nopeek_mask = self.get_nopeek_mask(seq_len, device)
-        tgt_nopeek_mask = self.get_nopeek_mask(seq_len-1, device)
+        tgt_nopeek_mask = self.get_nopeek_mask(seq_len, device)
         src = self.pos_enc(src.transpose(0, 1) * math.sqrt(self.d_model))
 
         src = self.transformer.encoder(src,
                                        mask=src_nopeek_mask,
                                        src_key_padding_mask=src_padding_mask)
 
-        tgt = torch.zeros(seq_len, batch_size, dtype=torch.long, device=device)
+        tgt = torch.zeros(seq_len+1, batch_size, dtype=torch.long, device=device)
         tgt[0, :] = self.num_classes
-        for i in range(1, seq_len):
+        for i in range(1, seq_len+1):
             tgt_embed = self.embed_tgt(tgt[:i].transpose(0, 1)).transpose(0, 1)
             tgt_enc = self.pos_enc(tgt_embed * math.sqrt(self.d_model))
+
             out = self.transformer.decoder(tgt=tgt_enc,
                                            memory=src,
                                            tgt_mask=tgt_nopeek_mask[:i, :i],
-                                        #    memory_mask=src_nopeek_mask[:i, :],
+                                           memory_mask=src_nopeek_mask[:i, :],
                                            tgt_key_padding_mask=tgt_padding_mask[:, :i],
                                            memory_key_padding_mask=src_padding_mask[:, :seq_len])
-            
-            tgt[i] = self.linear(out).log_softmax(-1)[-1].argmax(dim=-1)
+
+            tgt[i] = self.linear(out[-1]).log_softmax(-1).argmax(dim=1)
 
         return tgt[1:].transpose(0, 1)
 

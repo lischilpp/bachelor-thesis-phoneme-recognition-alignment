@@ -35,7 +35,7 @@ if __name__ == '__main__':
                          auto_lr_find=auto_lr_find,
                          precision=16,
                          gradient_clip_val=0.5,
-                        #  num_sanity_val_steps=0,
+                         num_sanity_val_steps=0,
                          callbacks=[ModelCheckpoint(monitor='val_PER'),
                                     EarlyStopping(monitor='val_PER', patience=3)])
     # resume_from_checkpoint='lightning_logs/version_1411/checkpoints/epoch=12-step=1429.ckpt')
@@ -48,7 +48,8 @@ if __name__ == '__main__':
 
         confmat = model.confmatMetric.compute()
         plt.figure(figsize=(15,10))
-        class_names = Phoneme.folded_group_phoneme_list
+
+        class_names = Phoneme.folded_group_phoneme_list + ['SOS', 'EOS']
         df_cm = pd.DataFrame(confmat, index=class_names, columns=class_names).astype(int)
         heatmap = sns.heatmap(df_cm, annot=True, cbar=False, fmt="d")
 
