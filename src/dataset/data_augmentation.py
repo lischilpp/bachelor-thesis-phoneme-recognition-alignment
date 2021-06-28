@@ -9,11 +9,11 @@ from settings import *
 gaussian_noise_probability = 0
 gaussian_noise_strength = 0.0001
 
-pitch_shift_probability = 1
+pitch_shift_probability = 0
 pitch_shift_min = -3
 pitch_shift_max = 3  # 4 semitones
 
-time_stretch_probability = 1
+time_stretch_probability = 0
 time_stretch_min = 0.85
 time_stretch_max = 1.25
 

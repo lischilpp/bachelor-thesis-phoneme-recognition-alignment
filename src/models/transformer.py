@@ -14,12 +14,13 @@ class TransformerModel(nn.Module):
         self.max_seq_len = 128
         self.ninp = 256
         self.nhid = 2048
-        self.nlayers = 8
-        self.nhead = 8
-        self.dropout = 0.1
+        self.nlayers = 4
+        self.nhead = 4
+        self.pos_dropout = 0.1
+        self.transformer_dropout = 0.1
         self.linear1 = nn.Linear(N_MELS, self.ninp)
-        self.pos_encoder = PositionalEncoding(self.ninp, self.dropout, self.max_seq_len)
-        encoder_layer = TransformerEncoderLayer(self.ninp, self.nhead, self.nhid, self.dropout, activation='gelu')
+        self.pos_encoder = PositionalEncoding(self.ninp, self.pos_dropout, self.max_seq_len)
+        encoder_layer = TransformerEncoderLayer(self.ninp, self.nhead, self.nhid, self.transformer_dropout, activation='gelu')
         self.transformer_encoder = TransformerEncoder(encoder_layer, self.nlayers)
         self.decoder = nn.Linear(self.ninp, num_classes)
         self.dropout_layer = nn.Dropout(0.5)
@@ -61,7 +62,7 @@ class TransformerModel(nn.Module):
 
         output = self.decoder(output)
         output = output.transpose(0, 1)
-        output = self.dropout_layer(output)
+        # output = self.dropout_layer(output)
         return output
 
 

@@ -14,6 +14,7 @@ from models.gru import GRUModel
 from models.ligru import LiGRUModel
 from models.transformer import TransformerModel
 from dataset.disk_dataset import DiskDataset
+from schedulers.cyclic_plateau_scheduler import CyclicPlateauScheduler
 
 
 class PhonemeClassifier(pl.LightningModule):
@@ -22,26 +23,24 @@ class PhonemeClassifier(pl.LightningModule):
         super().__init__()
         self.batch_size = batch_size
         self.lr = lr
-        self.min_lr = min_lr
-        self.lr_patience = lr_patience
-        self.lr_reduce_factor = lr_reduce_factor
-        self.steps_per_epoch = steps_per_epoch
-        self.lr_reduce_metric = 'val_PER'
-        self.last_lr_metric_val = float('inf')
-        self.reduce_metric_too_high_count = 0
         self.num_classes = Phoneme.folded_phoneme_count()
         self.model = TransformerModel(self.num_classes)
-        # self.phoneme_decoder = PhonemeDecoder(output_size=self.num_classes)
-        # self.criterion = nn.CTCLoss(blank=self.num_classes, reduction='none')#weight=Phoneme.folded_phoneme_weights)
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss(weight=Phoneme.folded_phoneme_weights)
         self.optimizer = torch.optim.AdamW(
             self.parameters(), lr=self.lr)
+        self.lr_scheduler = CyclicPlateauScheduler(initial_lr=self.lr,
+                                                   min_lr=min_lr,
+                                                   lr_patience=lr_patience,
+                                                   lr_reduce_factor=lr_reduce_factor,
+                                                   lr_reduce_metric='val_PER',
+                                                   steps_per_epoch=steps_per_epoch,
+                                                   optimizer=self.optimizer)
         self.confmatMetric = ConfusionMatrix(num_classes=Phoneme.folded_group_phoneme_count())
 
-    def training_step(self, batch, step):
+    def training_step(self, batch, step_index):
         self.model.train()
         loss = self.calculate_metrics(batch, mode='train')
-        self.update_lr(step)
+        self.lr_scheduler.step(step_index)
         self.log('train_loss', loss)
         self.log('lr', self.optimizer.param_groups[0]['lr'], prog_bar=True)
         return loss
@@ -53,22 +52,16 @@ class PhonemeClassifier(pl.LightningModule):
         labels = labels[non_glottal_indices]
         return preds, labels
 
-    def validation_step(self, batch, step):
+    def validation_step(self, batch, step_index):
         self.model.eval()
         loss, acc, per = self.calculate_metrics(batch, mode='val')
-        self.update_lr(step)
+        self.lr_scheduler.step(step_index)
         metrics = {'val_loss': loss, 'val_FER': 1-acc, 'val_PER': per}
         self.log_dict(metrics, prog_bar=True)
         return metrics
 
     def validation_epoch_end(self, val_step_outputs): # plateau scheduler
-        reduce_metric_val = sum([output[self.lr_reduce_metric] for output in val_step_outputs])/len(val_step_outputs)
-        if reduce_metric_val > self.last_lr_metric_val * 0.95:
-            self.reduce_metric_too_high_count += 1
-        if self.reduce_metric_too_high_count > self.lr_patience:
-            self.lr = max(self.lr * self.lr_reduce_factor, self.min_lr)
-            self.reduce_metric_too_high_count = 0
-        self.last_lr_metric_val = reduce_metric_val
+        self.lr_scheduler.validation_epoch_end(val_step_outputs)
 
     def test_step(self, batch, _):
         self.model.eval()
@@ -78,17 +71,6 @@ class PhonemeClassifier(pl.LightningModule):
 
     def configure_optimizers(self):
         return self.optimizer
-
-    def update_lr(self, step, metric_val=None): # one-cycle lr per epoch
-        half_steps = self.steps_per_epoch // 2
-        min_lr = 1/10 * self.lr
-        if step < half_steps:
-            c = step / half_steps
-            lr = min_lr + c * (self.lr - min_lr)
-        else:
-            c = (step - half_steps) / half_steps
-            lr = self.lr - c * (self.lr - min_lr)
-        self.optimizer.param_groups[0]['lr'] = lr
 
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels = batch
