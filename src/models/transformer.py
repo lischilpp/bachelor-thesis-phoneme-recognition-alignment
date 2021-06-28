@@ -11,8 +11,8 @@ class TransformerModel(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
         self.num_classes = num_classes
-        self.max_seq_len = 1000
-        self.ninp = N_MELS
+        self.max_seq_len = 40
+        self.ninp = 256
         self.nhid = 2048
         self.nlayers = 4
         self.nhead = 4
@@ -21,7 +21,12 @@ class TransformerModel(nn.Module):
         self.pos_encoder = PositionalEncoding(self.ninp, self.dropout, self.max_seq_len)
         encoder_layer = TransformerEncoderLayer(self.ninp, self.nhead, self.nhid, self.dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layer, self.nlayers)
-        self.decoder = nn.Linear(self.ninp, num_classes)
+        self.gru = nn.GRU(input_size=self.ninp,
+                           hidden_size=self.ninp,
+                           num_layers=4,
+                           bidirectional=True)
+        self.decoder = nn.Linear(self.gru.hidden_size*2, num_classes)
+        self.out_dropout = nn.Dropout(0.2)
 
         self.init_weights()
 
@@ -41,14 +46,28 @@ class TransformerModel(nn.Module):
         return torch.full((size, size), float('-inf'), device=device).triu(1)
 
     def forward(self, src, lengths, device):
-        src = self.linear1(src)
-        src_mask = self.get_nopeek_mask(src.size(1), device)
-        padding_mask = self.get_padding_mask(lengths, src.size(1), device)
-        src = src.transpose(0, 1) * math.sqrt(self.ninp)
-        src = self.pos_encoder(src)
-        out = self.transformer_encoder(src, src_mask, padding_mask)
-        out = self.decoder(out)
-        return out.transpose(0, 1)
+        src = self.linear1(src).transpose(0, 1)
+        splits = src.split(self.max_seq_len, dim=0)
+        src_mask = self.get_nopeek_mask(self.max_seq_len, device)
+        output = torch.zeros(src.size(0), src.size(1), self.ninp, device=device)
+        for i, split in enumerate(splits):
+            nopeek_mask = src_mask
+            padding_mask = None
+            if split.size(0) < self.max_seq_len:
+                padding_mask = self.get_padding_mask(lengths, split.size(0), device)
+                nopeek_mask = src_mask[:split.size(0), :split.size(0)]
+            split = split * math.sqrt(self.ninp)
+            split = self.pos_encoder(split)
+            out = self.transformer_encoder(split,
+                                           nopeek_mask,
+                                           padding_mask)
+            output[i*self.max_seq_len:(i+1)*self.max_seq_len] = out
+
+        output, _ = self.gru(output)
+        output = self.decoder(output)
+        output = output.transpose(0, 1)
+        output = self.out_dropout(output)
+        return output
 
     def set_train(self):
         self.transformer_encoder.train()
