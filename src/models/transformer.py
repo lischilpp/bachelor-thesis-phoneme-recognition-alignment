@@ -19,14 +19,14 @@ class TransformerModel(nn.Module):
         self.dropout = 0.1
         self.linear1 = nn.Linear(N_MELS, self.ninp)
         self.pos_encoder = PositionalEncoding(self.ninp, self.dropout, self.max_seq_len)
-        encoder_layer = TransformerEncoderLayer(self.ninp, self.nhead, self.nhid, self.dropout)
+        encoder_layer = TransformerEncoderLayer(self.ninp, self.nhead, self.nhid, self.dropout, activation='gelu')
         self.transformer_encoder = TransformerEncoder(encoder_layer, self.nlayers)
         self.gru = nn.GRU(input_size=self.ninp,
-                           hidden_size=self.ninp,
+                           hidden_size=512,
                            num_layers=4,
                            bidirectional=True)
         self.decoder = nn.Linear(self.gru.hidden_size*2, num_classes)
-        self.out_dropout = nn.Dropout(0.2)
+        self.out_dropout = nn.Dropout(0.5)
 
         self.init_weights()
 
@@ -60,7 +60,7 @@ class TransformerModel(nn.Module):
             split = self.pos_encoder(split)
             out = self.transformer_encoder(split,
                                            nopeek_mask,
-                                           padding_mask)
+                                           src_key_padding_mask=padding_mask)
             output[i*self.max_seq_len:(i+1)*self.max_seq_len] = out
 
         output, _ = self.gru(output)
@@ -79,7 +79,7 @@ class TransformerModel(nn.Module):
 # taken from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
 class PositionalEncoding(nn.Module):
 
-    def __init__(self, d_model, dropout=0.1, max_len=1000):
+    def __init__(self, d_model, dropout, max_len):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
 

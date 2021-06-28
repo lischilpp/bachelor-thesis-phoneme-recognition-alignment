@@ -17,7 +17,7 @@ num_epochs = 100
 batch_size = 32
 initial_lr = 0.001
 min_lr = 1e-8
-lr_patience = 1
+lr_patience = 0
 lr_reduce_factor = 0.4
 auto_lr_find=False
 
