@@ -39,7 +39,7 @@ class PhonemeClassifier(pl.LightningModule):
         self.confmatMetric = ConfusionMatrix(num_classes=Phoneme.folded_group_phoneme_count())
 
     def training_step(self, batch, step):
-        self.model.set_train()
+        self.model.train()
         loss = self.calculate_metrics(batch, mode='train')
         self.update_lr(step)
         self.log('train_loss', loss)
@@ -54,7 +54,7 @@ class PhonemeClassifier(pl.LightningModule):
         return preds, labels
 
     def validation_step(self, batch, step):
-        self.model.set_eval()
+        self.model.eval()
         loss, acc, per = self.calculate_metrics(batch, mode='val')
         self.update_lr(step)
         metrics = {'val_loss': loss, 'val_FER': 1-acc, 'val_PER': per}
@@ -71,7 +71,7 @@ class PhonemeClassifier(pl.LightningModule):
         self.last_lr_metric_val = reduce_metric_val
 
     def test_step(self, batch, _):
-        self.model.set_eval()
+        self.model.eval()
         loss, acc, per = self.calculate_metrics(batch, mode='test')
         metrics = {'test_loss': loss, 'test_FER': 1-acc, 'test_PER': per}
         self.log_dict(metrics, prog_bar=True)

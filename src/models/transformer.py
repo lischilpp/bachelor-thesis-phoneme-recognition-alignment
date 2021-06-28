@@ -21,12 +21,8 @@ class TransformerModel(nn.Module):
         self.pos_encoder = PositionalEncoding(self.ninp, self.dropout, self.max_seq_len)
         encoder_layer = TransformerEncoderLayer(self.ninp, self.nhead, self.nhid, self.dropout, activation='gelu')
         self.transformer_encoder = TransformerEncoder(encoder_layer, self.nlayers)
-        self.gru = nn.GRU(input_size=self.ninp,
-                           hidden_size=512,
-                           num_layers=4,
-                           bidirectional=True)
-        self.decoder = nn.Linear(self.gru.hidden_size*2, num_classes)
-        self.out_dropout = nn.Dropout(0.5)
+        self.decoder = nn.Linear(self.ninp, num_classes)
+        self.dropout_layer = nn.Dropout(0.5)
 
         self.init_weights()
 
@@ -63,17 +59,10 @@ class TransformerModel(nn.Module):
                                            src_key_padding_mask=padding_mask)
             output[i*self.max_seq_len:(i+1)*self.max_seq_len] = out
 
-        output, _ = self.gru(output)
         output = self.decoder(output)
         output = output.transpose(0, 1)
-        output = self.out_dropout(output)
+        output = self.dropout_layer(output)
         return output
-
-    def set_train(self):
-        self.transformer_encoder.train()
-    
-    def set_eval(self):
-        self.transformer_encoder.eval()
 
 
 # taken from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
