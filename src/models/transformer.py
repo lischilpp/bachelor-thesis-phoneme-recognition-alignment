@@ -11,11 +11,11 @@ class TransformerModel(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
         self.num_classes = num_classes
-        self.max_seq_len = 40
+        self.max_seq_len = 128
         self.ninp = 256
         self.nhid = 2048
-        self.nlayers = 4
-        self.nhead = 4
+        self.nlayers = 8
+        self.nhead = 8
         self.dropout = 0.1
         self.linear1 = nn.Linear(N_MELS, self.ninp)
         self.pos_encoder = PositionalEncoding(self.ninp, self.dropout, self.max_seq_len)
