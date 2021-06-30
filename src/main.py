@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 from dataset.disk_dataset import DiskDataset
 
 
-
 num_epochs = 100
 batch_size = 32
 initial_lr = 0.001
@@ -21,15 +20,15 @@ lr_patience = 0
 lr_reduce_factor = 0.4
 auto_lr_find=False
 
+
 if __name__ == '__main__':
     dm = DataModule(batch_size)
-    dm.setup(None)
     model = PhonemeClassifier(batch_size,
                               initial_lr,
                               min_lr,
                               lr_patience,
                               lr_reduce_factor,
-                              len(dm.train_dataloader()))
+                              len(DiskDataset(TRAIN_PATH)))
     trainer = pl.Trainer(gpus=1,
                          max_epochs=num_epochs,
                          auto_lr_find=auto_lr_find,
@@ -45,16 +44,19 @@ if __name__ == '__main__':
     else:
         trainer.fit(model, dm)
         trainer.test(datamodule=dm)
-
         confmat = model.confmatMetric.compute()
-        plt.figure(figsize=(15,10))
+        show_confusion_matrix(confmat)
+        
 
-        class_names = Phoneme.folded_group_phoneme_list
-        df_cm = pd.DataFrame(confmat, index=class_names, columns=class_names).astype(int)
-        heatmap = sns.heatmap(df_cm, annot=True, cbar=False, fmt="d")
+def show_confusion_matrix(confmat):
+    plt.figure(figsize=(15,10))
 
-        heatmap.yaxis.set_ticklabels(heatmap.yaxis.get_ticklabels(), rotation=0, ha='right',fontsize=15)
-        heatmap.xaxis.set_ticklabels(heatmap.xaxis.get_ticklabels(), rotation=45, ha='right',fontsize=15)
-        plt.ylabel('True label')
-        plt.xlabel('Predicted label')
-        plt.show()
+    class_names = Phoneme.folded_group_phoneme_list
+    df_cm = pd.DataFrame(confmat, index=class_names, columns=class_names).astype(int)
+    heatmap = sns.heatmap(df_cm, annot=True, cbar=False, fmt="d")
+
+    heatmap.yaxis.set_ticklabels(heatmap.yaxis.get_ticklabels(), rotation=0, ha='right',fontsize=15)
+    heatmap.xaxis.set_ticklabels(heatmap.xaxis.get_ticklabels(), rotation=45, ha='right',fontsize=15)
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    plt.show()

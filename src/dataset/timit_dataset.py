@@ -1,3 +1,4 @@
+from pathlib import PurePath
 from phonemes import Phoneme
 from settings import *
 import torchaudio
@@ -27,15 +28,15 @@ class TimitDataset(torch.utils.data.Dataset):
     def get_recording_paths(self):
         recording_paths = []
         train_test_str = "TEST" if self.test else "TRAIN"
-        for path in (TIMIT_PATH / train_test_str).rglob('*.WAV'):
-            path_entries = str(path).split('/')
+        for path in (TIMIT_PATH / train_test_str).rglob('*.WAV.wav'):
+            path_entries = PurePath(path).parts
             speaker_id = path_entries[5]
             filename = path_entries[6]
             is_sa_file = filename.startswith('SA')
             if (EXCLUDE_SA_FILES or self.test) and is_sa_file:
                 continue
             recording_paths.append({
-                'path': str(path.relative_to(TIMIT_PATH))[:-4],
+                'path': str(path.relative_to(TIMIT_PATH))[:-8],
                 'is_sa_file': is_sa_file,
                 'is_core_test': speaker_id in TimitDataset.core_test_set_speakers})
         return recording_paths

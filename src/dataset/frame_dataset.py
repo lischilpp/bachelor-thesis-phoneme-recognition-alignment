@@ -5,8 +5,6 @@ from settings import *
 import torch
 import warnings
 import torchaudio.compliance.kaldi as kaldi
-# disable C++ extension warning
-warnings.filterwarnings('ignore', 'torchaudio C\+\+', )
 
 
 class FrameDataset(torch.utils.data.Dataset):
@@ -42,11 +40,6 @@ class FrameDataset(torch.utils.data.Dataset):
             frame_length=FRAME_LENGTH,
             frame_shift=STRIDE,
             num_mel_bins=N_MELS)
-        # fbank = kaldi.fbank(
-        #     waveform,
-        #     frame_length=FRAME_LENGTH / 2,
-        #     frame_shift=STRIDE / 2,
-        #     num_mel_bins=N_MELS)
         return fbank
 
     def __getitem__(self, index):

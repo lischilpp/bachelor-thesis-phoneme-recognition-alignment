@@ -36,33 +36,3 @@ waveform, _ = ds[400]
 waveform = (waveform + 1) * 100
 print(f" - Max:     {waveform.max().item():6.3f}")
 print(f" - Min:     {waveform.min().item():6.3f}")
-
-
-# import torch
-# import time
-
-# device = 'cuda:0'
-# size = 1000
-# n_repeats = 100
-
-# torch.tensor(float('-inf'), device=device).expand(size, size).triu(1)
-# torch.triu(torch.full((size, size), float('-inf')), 1)
-
-# time_sum1 = 0
-# time_sum2 = 0
-# for i in range(n_repeats):
-#     # measure time for mask 1
-#     start = time.time()
-#     torch.tensor(float('-inf'), device=device).expand(size, size).triu(1)
-#     time_sum1 += time.time() - start
-#     # measure time for mask 2
-#     start = time.time()
-#     torch.full((size, size), float('-inf'), device=device).triu(1)
-#     time_sum2 += time.time() - start
-
-# mask1_time = time_sum1 / n_repeats
-# mask2_time = time_sum2 / n_repeats
-# speedup = mask1_time / mask2_time
-# print(f'mask1 took {mask1_time:f}')
-# print(f'mask2 took {mask2_time:f}')
-# print(f'speedup: {speedup :f}')

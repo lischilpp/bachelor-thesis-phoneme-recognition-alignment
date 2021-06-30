@@ -1,19 +1,14 @@
-import string
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pad_sequence
 from torchmetrics import ConfusionMatrix
+import torchmetrics.functional as FM
 import pytorch_lightning as pl
-import torch.nn.functional as F
-from pytorch_lightning.metrics import functional as FM
-from leven import levenshtein
+from Levenshtein import distance as levenshtein_distance
 
 from settings import *
 from phonemes import Phoneme
 from models.gru import GRUModel
-from models.ligru import LiGRUModel
 from models.transformer import TransformerModel
-from dataset.disk_dataset import DiskDataset
 from schedulers.cyclic_plateau_scheduler import CyclicPlateauScheduler
 
 
@@ -108,7 +103,7 @@ class PhonemeClassifier(pl.LightningModule):
         batch_size = lengths.size(0)
         distances = torch.zeros(batch_size)
         for i in range(batch_size):
-            distances[i] = levenshtein(
+            distances[i] = levenshtein_distance(
                 self.intarray_to_unique_string(pn_labels_pred[i]),
                 self.intarray_to_unique_string(pn_labels_correct[i])) / len(pn_labels_correct[i])
         return torch.mean(distances)
@@ -116,7 +111,7 @@ class PhonemeClassifier(pl.LightningModule):
     def remove_padding(self, tensor, lengths):
         return [tensor[i][:lengths[i]] for i in range(tensor.size(0))]
 
-    def get_phoneme_labels(self, segment_labels, lengths, boundaries=None):
+    def get_phoneme_labels(self, segment_labels, lengths):
         pn_labels = []
         for i in range(lengths.size(0)):
             pn_labels.append([segment_labels[i][0]])
