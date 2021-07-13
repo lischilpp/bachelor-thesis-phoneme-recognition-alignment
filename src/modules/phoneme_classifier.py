@@ -19,8 +19,8 @@ class PhonemeClassifier(pl.LightningModule):
         self.batch_size = batch_size
         self.lr = lr
         self.num_classes = Phoneme.folded_phoneme_count()
-        self.model = TransformerModel(self.num_classes)
-        self.criterion = nn.CrossEntropyLoss(weight=Phoneme.folded_phoneme_weights)
+        self.model = GRUModel(self.num_classes)
+        self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.AdamW(
             self.parameters(), lr=self.lr)
         self.lr_scheduler = CyclicPlateauScheduler(initial_lr=self.lr,
@@ -70,9 +70,9 @@ class PhonemeClassifier(pl.LightningModule):
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels = batch
 
-        fbank = fbank / 4 + 2
+        # fbank = fbank / 4 + 2
 
-        out = self.model(fbank, lengths, self.device)
+        out = self.model(fbank)
 
         labels = self.remove_padding(labels, lengths)
         out = self.remove_padding(out, lengths)
@@ -82,8 +82,9 @@ class PhonemeClassifier(pl.LightningModule):
         if mode == 'train':
             return loss
         
-        preds = [o.softmax(1).argmax(1) for o in out]
+        preds = [o.argmax(1) for o in out]
         
+        # preds = self.correct_preds_with_label(preds, )
         preds_folded = self.foldGroupIndices(preds, lengths)
         labels_folded = self.foldGroupIndices(labels, lengths)
         per_value = self.calculate_per(preds_folded, labels_folded, lengths)

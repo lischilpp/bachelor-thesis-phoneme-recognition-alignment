@@ -22,10 +22,10 @@ class DiskDataset(torch.utils.data.Dataset):
         n_records = len(ds)
         save_path.mkdir(exist_ok=True)
         for (i, entry) in enumerate(ds):
-            waveform, phonemes, is_sa_file, _ = entry
+            waveform, phonemes, sentence, is_sa_file, _ = entry
             if exclude_sa_files and is_sa_file:
                 continue
-            entry = waveform, phonemes
+            entry = waveform, phonemes, sentence
             torch.save(entry, save_path / f'record{i}')
             if i % 100 == 0:
                 percent = floor(i / n_records * 100)

@@ -6,22 +6,22 @@ from torchaudio.sox_effects import apply_effects_tensor
 from settings import *
 
 
-gaussian_noise_probability = 0
+gaussian_noise_probability = 0.5
 gaussian_noise_strength = 0.0001
 
-pitch_shift_probability = 0
-pitch_shift_min = -3
-pitch_shift_max = 3  # 4 semitones
+pitch_shift_probability = 0.5
+pitch_shift_min = -4
+pitch_shift_max = 4  # 4 semitones
 
-time_stretch_probability = 0
+time_stretch_probability = 0.5
 time_stretch_min = 0.85
 time_stretch_max = 1.25
 
-frequency_mask_probability = 1
+frequency_mask_probability = 0.5
 frequency_mask_height = 20
 
 time_mask_probability = 1
-time_mask_frame_probability = 0.2
+time_mask_frame_probability = 0.1
 
 
 def augment_record(record):

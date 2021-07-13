@@ -7,12 +7,12 @@ from phonemes import Phoneme
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
     
-# ds = FrameDataset(DiskDataset(TRAIN_PATH), augment=True)
-# fbank, labels = ds[0]
+ds = FrameDataset(DiskDataset(TRAIN_PATH), augment=True)
+fbank, labels = ds[0]
 
-# plt.imshow(fbank.transpose(0, 1))
-# plt.show()
-
+plt.imshow(fbank.transpose(0, 1))
+plt.show()
+exit()
 
 import torchaudio
 

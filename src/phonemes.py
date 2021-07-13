@@ -1,6 +1,8 @@
 import csv
 import torch
 
+from settings import *
+
 
 class Phoneme():
 
@@ -61,20 +63,23 @@ class Phoneme():
         's', 'sil', 't', 'th', 'uh', 'uw', 'v', 'w', 'y', 'z', 'zh'
     ]
 
+    word_to_phoneme_dict = {}
+
     def __init__(self, start, stop, symbol):
         self.start = start
         self.stop = stop
-        self.symbol = self.strip_digits(symbol)
-
-    def strip_digits(self, s):
-        length = len(s)
-        return s[0:length-1] if s[length - 1].isdigit() else s
+        self.symbol = symbol
 
     def __str__(self):
         return f'{self.start}-{self.stop}: {self.symbol}'
 
     def __repr__(self):
         return self.__str__()
+
+    @classmethod
+    def strip_digits(cls, s):
+        length = len(s)
+        return s[0:length-1] if s[length - 1].isdigit() else s
 
     @classmethod
     def folded_phoneme_count(cls):
@@ -91,13 +96,55 @@ class Phoneme():
             reader = csv.reader(pn_file, delimiter=' ')
             phonemes = []
             for row in reader:
-                symbol = row[2]
+                symbol = cls.strip_digits(row[2])
                 if symbol == 'q':
                     continue
-                symbol = Phoneme.symbol_to_folded.get(symbol, symbol)
+                symbol = cls.symbol_to_folded.get(symbol, symbol)
                 start = int(row[0])
                 stop = int(row[1])
                 phoneme = Phoneme(start, stop, symbol)
                 phonemes.append(phoneme)
 
         return phonemes
+
+
+    @classmethod
+    def load_phoneme_dict(cls):
+        phonemes = []
+        with open(DICT_PATH) as dict_file:
+            reader = csv.reader(dict_file, delimiter='/')
+            i = 0
+            for row in reader:
+                if row[0][0] == ';':
+                    continue
+                word = row[0][:-2]
+                if '~' in word:
+                    word = word[:word.index('~')]
+                word = word.replace('.', '')
+                pn_symbols = row[1].split(' ')
+                pn_symbols = [cls.symbol_to_folded.get(cls.strip_digits(s), s)
+                              for s in pn_symbols]
+                cls.word_to_phoneme_dict[word] = pn_symbols
+        
+    @classmethod
+    def get_phonemified_sentence_from_file(cls, path):
+        with open(path) as txt_file:
+            reader = csv.reader(txt_file, delimiter=' ')
+            sentence_objects = list(reader)[0][2:]
+            words = []
+            for obj in sentence_objects:
+                words.extend(obj.split(' '))
+
+            # print(path)
+            # print(words)
+
+            pn_words = []
+            for word in words:
+                if word in ['', '--']:
+                    continue
+                word = ''.join(e for e in word if e.isalnum() or e in ['-', "'"])
+                word = cls.word_to_phoneme_dict[word.lower()]
+                pn_words.append(word)
+
+        return pn_words
+    
