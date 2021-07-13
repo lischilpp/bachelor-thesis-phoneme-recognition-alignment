@@ -65,13 +65,13 @@ class Phoneme():
 
     word_to_phoneme_dict = {}
 
-    def __init__(self, start, stop, symbol):
+    def __init__(self, start, stop, symbol_idx):
         self.start = start
         self.stop = stop
-        self.symbol = symbol
+        self.symbol_idx = symbol_idx
 
     def __str__(self):
-        return f'{self.start}-{self.stop}: {self.symbol}'
+        return f'{self.start}-{self.stop}: {Phoneme.folded_phoneme_list[self.symbol_idx]}'
 
     def __repr__(self):
         return self.__str__()
@@ -102,7 +102,8 @@ class Phoneme():
                 symbol = cls.symbol_to_folded.get(symbol, symbol)
                 start = int(row[0])
                 stop = int(row[1])
-                phoneme = Phoneme(start, stop, symbol)
+                symbol_idx = cls.folded_phoneme_list.index(symbol)
+                phoneme = Phoneme(start, stop, symbol_idx)
                 phonemes.append(phoneme)
 
         return phonemes
@@ -122,9 +123,12 @@ class Phoneme():
                     word = word[:word.index('~')]
                 word = word.replace('.', '')
                 pn_symbols = row[1].split(' ')
-                pn_symbols = [cls.symbol_to_folded.get(cls.strip_digits(s), s)
+                pn_symbols = [cls.strip_digits(s) for s in pn_symbols]
+                pn_symbol_indizes = [
+                    cls.folded_phoneme_list.index(
+                        cls.symbol_to_folded.get(s, s))
                               for s in pn_symbols]
-                cls.word_to_phoneme_dict[word] = pn_symbols
+                cls.word_to_phoneme_dict[word] = pn_symbol_indizes
         
     @classmethod
     def get_phonemified_sentence_from_file(cls, path):
@@ -134,17 +138,13 @@ class Phoneme():
             words = []
             for obj in sentence_objects:
                 words.extend(obj.split(' '))
-
-            # print(path)
-            # print(words)
-
-            pn_words = []
+            phonemes_indizes = []
             for word in words:
                 if word in ['', '--']:
                     continue
                 word = ''.join(e for e in word if e.isalnum() or e in ['-', "'"])
-                word = cls.word_to_phoneme_dict[word.lower()]
-                pn_words.append(word)
-
-        return pn_words
+                word_pns = cls.word_to_phoneme_dict[word.lower()]
+                phonemes_indizes.extend(word_pns)
+        phonemes_indizes = torch.tensor(phonemes_indizes)
+        return phonemes_indizes
     

@@ -68,7 +68,7 @@ class PhonemeClassifier(pl.LightningModule):
         return self.optimizer
 
     def calculate_metrics(self, batch, mode):
-        (fbank, lengths), labels = batch
+        (fbank, lengths), labels, sentences = batch
 
         # fbank = fbank / 4 + 2
 
@@ -84,7 +84,13 @@ class PhonemeClassifier(pl.LightningModule):
         
         preds = [o.argmax(1) for o in out]
         
-        # preds = self.correct_preds_with_label(preds, )
+        pn_labels_pred = self.get_phoneme_labels(preds, lengths)
+        for i in range(32):
+            print('---')
+            print(torch.stack(pn_labels_pred[i]))
+            print(sentences[i])
+        
+        # preds = self.get_preds_with_sentences(out, sentences)
         preds_folded = self.foldGroupIndices(preds, lengths)
         labels_folded = self.foldGroupIndices(labels, lengths)
         per_value = self.calculate_per(preds_folded, labels_folded, lengths)
@@ -118,8 +124,46 @@ class PhonemeClassifier(pl.LightningModule):
             pn_labels.append([segment_labels[i][0]])
             pn_labels[i].extend(segment_labels[i][j]
                              for j in range(lengths[i])
-                             if segment_labels[i][j] != 48 and segment_labels[i][j] != segment_labels[i][j-1])
+                             if segment_labels[i][j] != segment_labels[i][j-1])
         return pn_labels
+
+    def get_preds_with_sentences(self, out, sentences):
+        # print(out[0].shape)
+        non_label_symbols = ['cl', 'vcl', 'epi', 'sil']
+        non_label_indices = [Phoneme.folded_phoneme_list.index(s) for s in non_label_symbols]
+        preds = []
+        for i in range(len(out)):
+            sentence = sentences[i]
+            props = out[i]
+            for j in range(props.size(1)):
+                if not j in non_label_indices and not j in sentence:
+                    props[:, j] = float('-inf')
+            pred = props.argmax(1)
+            preds.append(pred)
+        # preds = []
+        # for i in range(len(out)):
+        #     sentence = sentences[i]
+        #     pn_idx = 0
+        #     sentence_symbol_idx = sentence[pn_idx]
+        #     sentence_symbol_idx_next = sentence[pn_idx+1]
+        #     props = out[i]
+        #     sentence_pred = torch.zeros(props.size(0), dtype=torch.long, device=self.device)
+        #     for j in range(props.size(0)):
+        #         prop_col = props[j]
+        #         relevant_symbol_indizes = torch.tensor(non_label_indices + [sentence_symbol_idx, sentence_symbol_idx_next], device=self.device)
+        #         for k in range(prop_col.size(0)):
+        #             if not k in relevant_symbol_indizes:
+        #                 prop_col[k] = float('-inf')
+        #         pred = prop_col.argmax(0)
+        #         if pred == sentence_symbol_idx_next and pn_idx+1 < len(sentence):
+        #             pn_idx += 1
+        #             sentence_symbol_idx = sentence[pn_idx]
+        #             if pn_idx+1 < len(sentence):
+        #                 sentence_symbol_idx_next = sentence[pn_idx+1]
+        #         sentence_pred[j] = pred
+        #     preds.append(sentence_pred)
+
+        return preds
     
     def intarray_to_unique_string(self, intarray):
         return ''.join([chr(65+i) for i in intarray])

@@ -29,7 +29,7 @@ class FrameDataset(torch.utils.data.Dataset):
                 # next phoneme
                 phon_idx += 1
                 phon = phonemes[phon_idx]
-            labels.append(Phoneme.folded_phoneme_list.index(phon.symbol))
+            labels.append(phon.symbol_idx)
             label_idx += 1
             x += SAMPLES_PER_STRIDE
         return torch.tensor(labels)
@@ -46,12 +46,12 @@ class FrameDataset(torch.utils.data.Dataset):
         record = self.root_ds[index]
         if self.augment:
             record = augment_record(record)
-        waveform, phonemes = record
+        waveform, phonemes, sentence = record
         fbank = self.create_fbank(waveform.view(1, -1))
         if self.augment:
             fbank = augment_fbank(fbank)   
         labels = self.get_frame_labels(phonemes, len(waveform))
-        return fbank, labels
+        return fbank, labels, sentence
 
     def __len__(self):
         return self.n_records
