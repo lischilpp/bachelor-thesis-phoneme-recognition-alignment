@@ -4,6 +4,8 @@ from torchmetrics import ConfusionMatrix
 import torchmetrics.functional as FM
 import pytorch_lightning as pl
 from Levenshtein import distance as levenshtein_distance
+from dtw import dtw
+import matplotlib.pyplot as plt
 
 from settings import *
 from phonemes import Phoneme
@@ -70,8 +72,6 @@ class PhonemeClassifier(pl.LightningModule):
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels, sentences = batch
 
-        # fbank = fbank / 4 + 2
-
         out = self.model(fbank)
 
         labels = self.remove_padding(labels, lengths)
@@ -83,15 +83,17 @@ class PhonemeClassifier(pl.LightningModule):
             return loss
         
         preds = [o.argmax(1) for o in out]
-        
-        pn_labels_pred = self.get_phoneme_labels(preds, lengths)
-        for i in range(32):
-            print('---')
-            print(torch.stack(pn_labels_pred[i]))
-            print(sentences[i])
-        
-        # preds = self.get_preds_with_sentences(out, sentences)
         preds_folded = self.foldGroupIndices(preds, lengths)
+
+        sil_idx = Phoneme.folded_group_phoneme_list.index('sil')
+
+        manhattan_distance = lambda x, y: torch.abs(x - y)
+        for i in range(len(lengths)):
+            _, _, _, path = dtw(preds_folded[i], sentences[i], dist=manhattan_distance)
+            for j in range(lengths[i]):
+                if preds_folded[i][j] != sil_idx:
+                    preds_folded[i][j] = sentences[i][path[1][j]]
+        
         labels_folded = self.foldGroupIndices(labels, lengths)
         per_value = self.calculate_per(preds_folded, labels_folded, lengths)
         preds_folded = torch.cat(preds_folded)
@@ -103,6 +105,7 @@ class PhonemeClassifier(pl.LightningModule):
 
         self.confmatMetric(preds_folded, labels_folded)
         return loss, acc, per_value
+
     
     def calculate_per(self, preds, labels, lengths):
         pn_labels_pred = self.get_phoneme_labels(preds, lengths)

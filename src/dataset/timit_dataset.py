@@ -51,6 +51,10 @@ class TimitDataset(torch.utils.data.Dataset):
         waveform = waveform[0]
         phonemes = Phoneme.get_phonemes_from_file(pn_path)
         sentence = Phoneme.get_phonemified_sentence_from_file(txt_path)
+        # x = [Phoneme.folded_phoneme_list[s] for s in sentence]
+        # print(x)
+        # y = [Phoneme.folded_phoneme_list[pn.symbol_idx] for pn in phonemes]
+        # print(y)
         return waveform, phonemes, sentence, recording_path['is_sa_file'], recording_path['is_core_test']
 
     def __len__(self):

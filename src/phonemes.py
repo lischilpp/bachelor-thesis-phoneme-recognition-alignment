@@ -72,6 +72,7 @@ class Phoneme():
 
     def __str__(self):
         return f'{self.start}-{self.stop}: {Phoneme.folded_phoneme_list[self.symbol_idx]}'
+        # return f'{self.start}-{self.stop}: {self.symbol_idx}'
 
     def __repr__(self):
         return self.__str__()
@@ -124,27 +125,30 @@ class Phoneme():
                 word = word.replace('.', '')
                 pn_symbols = row[1].split(' ')
                 pn_symbols = [cls.strip_digits(s) for s in pn_symbols]
-                pn_symbol_indizes = [
-                    cls.folded_phoneme_list.index(
-                        cls.symbol_to_folded.get(s, s))
-                              for s in pn_symbols]
-                cls.word_to_phoneme_dict[word] = pn_symbol_indizes
+                pn_symbols = [cls.symbol_to_folded.get(s, s) for s in pn_symbols]
+                pn_symbols = [cls.symbol_to_folded_group.get(s, s) for s in pn_symbols]
+                pn_indices = [cls.folded_group_phoneme_list.index(s) for s in pn_symbols]
+                cls.word_to_phoneme_dict[word] = pn_indices
         
     @classmethod
     def get_phonemified_sentence_from_file(cls, path):
+        silence_idx = cls.folded_group_phoneme_list.index('sil')
+        phonemes_indizes = [silence_idx]
         with open(path) as txt_file:
             reader = csv.reader(txt_file, delimiter=' ')
             sentence_objects = list(reader)[0][2:]
             words = []
             for obj in sentence_objects:
                 words.extend(obj.split(' '))
-            phonemes_indizes = []
+            # print(' '.join(words))
+            i = 0
             for word in words:
                 if word in ['', '--']:
                     continue
                 word = ''.join(e for e in word if e.isalnum() or e in ['-', "'"])
                 word_pns = cls.word_to_phoneme_dict[word.lower()]
                 phonemes_indizes.extend(word_pns)
+        phonemes_indizes.append(silence_idx)
         phonemes_indizes = torch.tensor(phonemes_indizes)
         return phonemes_indizes
     
