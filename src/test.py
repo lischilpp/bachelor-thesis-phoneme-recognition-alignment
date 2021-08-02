@@ -37,27 +37,26 @@ import torch.nn.functional as F
 # print(f" - Max:     {waveform.max().item():6.3f}")
 # print(f" - Min:     {waveform.min().item():6.3f}")
 
-import numpy as np
-import torch
+# import numpy as np
+# import torch
 
-# We define two sequences x, y as numpy array
-# where y is actually a sub-sequence from x
-x = torch.tensor([2, 0, 1, 1, 2, 4, 2, 1, 2, 0]).reshape(-1, 1)
-y = torch.tensor([1, 1, 2, 4, 2, 1, 2, 0]).reshape(-1, 1)
+# x = torch.tensor([2, 0, 1, 1, 2, 4, 2, 1, 2, 0]).reshape(-1, 1)
+# y = torch.tensor([1, 1, 2, 4, 2, 1, 2, 0]).reshape(-1, 1)
 
-print(x.shape)
+# print(x.shape)
 
-from dtw import dtw
+# from dtw import dtw
 
-manhattan_distance = lambda x, y: np.abs(x - y)
+# manhattan_distance = lambda x, y: np.abs(x - y)
 
-d, cost_matrix, acc_cost_matrix, path = dtw(x, y, dist=manhattan_distance)
+# d, cost_matrix, acc_cost_matrix, path = dtw(x, y, dist=manhattan_distance)
 
-print(path)
+# print(path)
 
-# You can also visualise the accumulated cost and the shortest path
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
-plt.imshow(acc_cost_matrix.T, origin='lower', cmap='gray', interpolation='nearest')
-plt.plot(path[0], path[1], 'w')
-plt.show()
+# plt.imshow(acc_cost_matrix.T, origin='lower', cmap='gray', interpolation='nearest')
+# plt.plot(path[0], path[1], 'w')
+# plt.show()
+
+print(Phoneme.folded_group_phoneme_list[16])

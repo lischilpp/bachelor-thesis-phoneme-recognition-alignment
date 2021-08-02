@@ -85,15 +85,12 @@ class PhonemeClassifier(pl.LightningModule):
         preds = [o.argmax(1) for o in out]
         preds_folded = self.foldGroupIndices(preds, lengths)
 
-        sil_idx = Phoneme.folded_group_phoneme_list.index('sil')
-
         manhattan_distance = lambda x, y: torch.abs(x - y)
         for i in range(len(lengths)):
             _, _, _, path = dtw(preds_folded[i], sentences[i], dist=manhattan_distance)
             for j in range(lengths[i]):
-                if preds_folded[i][j] != sil_idx:
-                    preds_folded[i][j] = sentences[i][path[1][j]]
-        
+                preds_folded[i][j] = sentences[i][path[1][j]]
+
         labels_folded = self.foldGroupIndices(labels, lengths)
         per_value = self.calculate_per(preds_folded, labels_folded, lengths)
         preds_folded = torch.cat(preds_folded)
@@ -145,7 +142,7 @@ class PhonemeClassifier(pl.LightningModule):
             preds.append(pred)
         # preds = []
         # for i in range(len(out)):
-        #     sentence = sentences[i]
+        #     sentence = sentences[i]2
         #     pn_idx = 0
         #     sentence_symbol_idx = sentence[pn_idx]
         #     sentence_symbol_idx_next = sentence[pn_idx+1]

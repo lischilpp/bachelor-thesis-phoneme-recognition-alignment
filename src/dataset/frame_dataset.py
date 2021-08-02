@@ -42,14 +42,24 @@ class FrameDataset(torch.utils.data.Dataset):
             num_mel_bins=N_MELS)
         return fbank
 
+    def get_phoneme_sentence_from_list(self, phonemes):
+        sentence = torch.zeros(len(phonemes), dtype=torch.int32)
+        for i, pn in enumerate(phonemes):
+            s = Phoneme.folded_phoneme_list[pn.symbol_idx]
+            s = Phoneme.symbol_to_folded_group.get(s, s)
+            idx = Phoneme.folded_group_phoneme_list.index(s)
+            sentence[i] = idx
+        return sentence
+
     def __getitem__(self, index):
         record = self.root_ds[index]
         if self.augment:
             record = augment_record(record)
-        waveform, phonemes, sentence = record
+        waveform, phonemes, _ = record
         fbank = self.create_fbank(waveform.view(1, -1))
         if self.augment:
-            fbank = augment_fbank(fbank)   
+            fbank = augment_fbank(fbank)
+        sentence = self.get_phoneme_sentence_from_list(phonemes)
         labels = self.get_frame_labels(phonemes, len(waveform))
         return fbank, labels, sentence
 
