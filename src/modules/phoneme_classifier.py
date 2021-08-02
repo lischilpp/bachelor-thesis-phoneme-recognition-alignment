@@ -69,11 +69,26 @@ class PhonemeClassifier(pl.LightningModule):
     def configure_optimizers(self):
         return self.optimizer
 
+    def fold_probabilities(self, out, lengths, batch_size):
+        out_folded = [torch.zeros(lengths[i], 39, device=self.device) for i in range(batch_size)]
+        # print(out[0].shape)
+        # print(out_folded[0].shape)
+        # exit()
+        for i in range(48):
+            symbol = Phoneme.folded_phoneme_list[i]
+            symbol = Phoneme.symbol_to_folded_group.get(symbol, symbol)
+            new_idx = Phoneme.folded_group_phoneme_list.index(symbol)
+
+            for j in range(batch_size):
+                out_folded[j][:, new_idx] += out[j][:, i]
+        return out_folded
+
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels, sentences = batch
 
-        out = self.model(fbank)
+        out = self.model(fbank).softmax(1)
 
+        batch_size = fbank.size(0)
         labels = self.remove_padding(labels, lengths)
         out = self.remove_padding(out, lengths)
 
@@ -81,17 +96,42 @@ class PhonemeClassifier(pl.LightningModule):
 
         if mode == 'train':
             return loss
-        
-        preds = [o.argmax(1) for o in out]
-        preds_folded = self.foldGroupIndices(preds, lengths)
 
-        manhattan_distance = lambda x, y: torch.abs(x - y)
+        out_folded = self.fold_probabilities(out, lengths, batch_size)
+        # preds_folded = [torch.zeros(l, dtype=torch.int32, device=self.device) for l in lengths]
+        # for i in range(batch_size):
+        #     cursor = 0
+        #     current_idx = sentences[i][cursor]
+        #     next_idx = sentences[i][cursor+1]
+        #     for j in range(lengths[i]-1):
+        #         # next phoneme more likely than current
+        #         if out_folded[i][j][next_idx] > out_folded[i][j][current_idx]:
+        #             preds_folded[i][j] = next_idx
+        #             cursor += 1
+        #             current_idx = sentences[i][cursor]
+        #             if cursor+1 < len(sentences[i]):
+        #                 next_idx = sentences[i][cursor+1]
+        #         else:
+        #             preds_folded[i][j] = current_idx
+
+        preds = [o.argmax(1) for o in out]
+        preds_folded = self.foldGroupIndices(preds, lengths)    
+
+        probability_distance = lambda x, y: 1 - x[y]
         for i in range(len(lengths)):
-            _, _, _, path = dtw(preds_folded[i], sentences[i], dist=manhattan_distance)
+            _, _, _, path = dtw(out_folded[i], sentences[i], dist=probability_distance)
             for j in range(lengths[i]):
                 preds_folded[i][j] = sentences[i][path[1][j]]
 
         labels_folded = self.foldGroupIndices(labels, lengths)
+
+        # for i in range(batch_size):
+        #     print('---')
+        #     print(out_folded[i].argmax(1))
+        #     print(preds_folded[i])
+        #     print(labels_folded[i])
+        # exit()
+
         per_value = self.calculate_per(preds_folded, labels_folded, lengths)
         preds_folded = torch.cat(preds_folded)
         labels_folded = torch.cat(labels_folded)
