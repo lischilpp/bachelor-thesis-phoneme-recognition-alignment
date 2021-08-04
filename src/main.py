@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from dataset.disk_dataset import DiskDataset
 
 
-num_epochs = 25
+num_epochs = 21
 batch_size = 32
 initial_lr = 0.001
 min_lr = 1e-8
@@ -51,7 +51,8 @@ if __name__ == '__main__':
                          num_sanity_val_steps=0,
                          callbacks=[ModelCheckpoint(monitor='val_PER'),
                                     EarlyStopping(monitor='val_PER', patience=3)],
-    resume_from_checkpoint='lightning_logs/version_2484/checkpoints/epoch=24-step=2749.ckpt')
+    resume_from_checkpoint='lightning_logs/version_2500/checkpoints/epoch=20-step=2309.ckpt')
+    # resume_from_checkpoint='lightning_logs/version_2484/checkpoints/epoch=24-step=2749.ckpt')
 
     if auto_lr_find:
         trainer.tune(model, dm)

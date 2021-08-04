@@ -35,7 +35,7 @@ class Phoneme():
         'ey', 'f', 'g', 'hh', 'ih', 'ix', 'iy', 'jh', 'k',
         'l', 'm', 'n', 'ng', 'ow', 'oy', 'p', 'r', 's', 'sh',
         'sil', 't', 'th', 'uh', 'uw', 'v', 'vcl', 'w',
-        'y', 'z', 'zh'
+        'y', 'z', 'zh', 'q'
     ]
 
     folded_phoneme_weights = torch.tensor([
@@ -47,7 +47,7 @@ class Phoneme():
     ])
 
     symbol_to_folded_group = {
-        **dict.fromkeys(['cl', 'vcl', 'epi'], 'sil'),
+        **dict.fromkeys(['cl', 'vcl', 'epi', 'q'], 'sil'),
         'el': 'l',
         'en': 'n',
         'sh': 'zh',
@@ -98,8 +98,8 @@ class Phoneme():
             phonemes = []
             for row in reader:
                 symbol = cls.strip_digits(row[2])
-                if symbol == 'q':
-                    continue
+                # if symbol == 'q':
+                #     continue
                 symbol = cls.symbol_to_folded.get(symbol, symbol)
                 start = int(row[0])
                 stop = int(row[1])

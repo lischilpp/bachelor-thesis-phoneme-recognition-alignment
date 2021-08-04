@@ -78,8 +78,8 @@ class PhonemeClassifier(pl.LightningModule):
         return self.optimizer
 
     def fold_probabilities(self, out, batch_size, lengths):
-        out_folded = [torch.zeros(lengths[i], 39, device=self.device) for i in range(batch_size)]
-        for i in range(48):
+        out_folded = [torch.zeros(lengths[i], Phoneme.folded_group_phoneme_count(), device=self.device) for i in range(batch_size)]
+        for i in range(Phoneme.folded_phoneme_count()):
             symbol = Phoneme.folded_phoneme_list[i]
             symbol = Phoneme.symbol_to_folded_group.get(symbol, symbol)
             new_idx = Phoneme.folded_group_phoneme_list.index(symbol)
@@ -90,13 +90,12 @@ class PhonemeClassifier(pl.LightningModule):
 
     def get_alignments(self, out_folded, sentences, lengths, batch_size):
         preds_folded = [torch.zeros(l, dtype=torch.int32, device=self.device) for l in lengths]
-        probability_distance = lambda x, y: 1 - x[y]
+        probability_distance = lambda x, y: 1 - pow(x[y], 0.01)
         for i in range(batch_size):
             _, _, _, path = dtw(out_folded[i], sentences[i], dist=probability_distance)
             for j in range(lengths[i]):
                 preds_folded[i][j] = sentences[i][path[1][j]]
         return preds_folded
-            
 
     def get_phoneme_boundary_indices(self, phoneme_lists, lengths, batch_size):
         boundary_indices = [[] for _ in range(batch_size)]
@@ -148,12 +147,12 @@ class PhonemeClassifier(pl.LightningModule):
 
         if mode == 'val':
             return loss, recognition_accuracy, recognition_per
-        
+
+        self.confmatMetric(torch.cat(preds_folded), torch.cat(labels_folded))
         out = [x.softmax(0) for x in out]
         out_folded = self.fold_probabilities(out, batch_size, lengths)
         preds_folded = self.get_alignments(out_folded, sentences, lengths, batch_size)
         alignment_accuracy = self.calculate_alignment_accuracy(preds_folded, labels_folded, lengths, batch_size)
-        self.confmatMetric(torch.cat(preds_folded), torch.cat(labels_folded))
 
         return loss, recognition_accuracy, recognition_per, alignment_accuracy
 
