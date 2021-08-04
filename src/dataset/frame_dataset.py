@@ -24,7 +24,7 @@ class FrameDataset(torch.utils.data.Dataset):
         while x + SAMPLES_PER_FRAME <= n_samples:
             phon = phonemes[phon_idx]
             # > 50% of phoneme in next frame
-            if phon_idx < len(phonemes) - 1 and \
+            while phon_idx < len(phonemes) - 1 and \
                phonemes[phon_idx+1].start - x < 0.5 * SAMPLES_PER_FRAME:
                 # next phoneme
                 phon_idx += 1
