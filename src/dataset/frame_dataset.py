@@ -14,25 +14,29 @@ class FrameDataset(torch.utils.data.Dataset):
         self.root_ds = root_ds
         self.n_records = len(root_ds)
         self.augment = augment
-        self.i = 0
 
-    def get_frame_labels(self, phonemes, n_samples):
+    def get_frame_labels_and_sentence(self, phonemes, n_samples):
         labels = []
-        phon_idx = 0
+        sentence = [Phoneme.folded_phoneme_list.index(phonemes[0].symbol)]
+        pn_idx = 0
         label_idx = 0
         x = 0
         while x + SAMPLES_PER_FRAME <= n_samples:
-            phon = phonemes[phon_idx]
+            pn = phonemes[pn_idx]
             # > 50% of phoneme in next frame
-            while phon_idx < len(phonemes) - 1 and \
-               phonemes[phon_idx+1].start - x < 0.5 * SAMPLES_PER_FRAME:
+            pn_idx_updated = False
+            while pn_idx < len(phonemes) - 1 and \
+               phonemes[pn_idx+1].start - x < 0.5 * SAMPLES_PER_STRIDE:
                 # next phoneme
-                phon_idx += 1
-                phon = phonemes[phon_idx]
-            labels.append(phon.symbol_idx)
+                pn_idx += 1
+                pn = phonemes[pn_idx]
+                pn_idx_updated = True
+            if pn_idx_updated:
+                sentence.append(Phoneme.symbol_to_folded_group_index(pn.symbol))
+            labels.append(Phoneme.folded_phoneme_list.index(pn.symbol))
             label_idx += 1
             x += SAMPLES_PER_STRIDE
-        return torch.tensor(labels)
+        return torch.tensor(labels), sentence
 
     def create_fbank(self, waveform):
         fbank = kaldi.fbank(
@@ -42,25 +46,15 @@ class FrameDataset(torch.utils.data.Dataset):
             num_mel_bins=N_MELS)
         return fbank
 
-    def get_phoneme_sentence_from_list(self, phonemes):
-        sentence = torch.zeros(len(phonemes), dtype=torch.int32)
-        for i, pn in enumerate(phonemes):
-            s = Phoneme.folded_phoneme_list[pn.symbol_idx]
-            s = Phoneme.symbol_to_folded_group.get(s, s)
-            idx = Phoneme.folded_group_phoneme_list.index(s)
-            sentence[i] = idx
-        return sentence
-
-    def __getitem__(self, index):
-        record = self.root_ds[index]
+    def __getitem__(self, i):
+        record = self.root_ds[i]
         if self.augment:
             record = augment_record(record)
-        waveform, phonemes, _ = record
+        waveform, phonemes = record
         fbank = self.create_fbank(waveform.view(1, -1))
         if self.augment:
             fbank = augment_fbank(fbank)
-        sentence = self.get_phoneme_sentence_from_list(phonemes)
-        labels = self.get_frame_labels(phonemes, len(waveform))
+        labels, sentence = self.get_frame_labels_and_sentence(phonemes, len(waveform))
         return fbank, labels, sentence
 
     def __len__(self):
