@@ -23,8 +23,7 @@ class TimitDataset(torch.utils.data.Dataset):
         super().__init__()
         self.test = test
         self.recording_paths = self.get_recording_paths()
-        self.n_recordings = len(self.recording_paths)
-        Phoneme.load_phoneme_dict()
+        self.n_records = len(self.recording_paths)
 
     def get_recording_paths(self):
         recording_paths = []
@@ -50,12 +49,7 @@ class TimitDataset(torch.utils.data.Dataset):
         waveform, _ = torchaudio.load(wav_path)
         waveform = waveform[0]
         phonemes = Phoneme.get_phonemes_from_file(pn_path)
-        sentence = Phoneme.get_phonemified_sentence_from_file(txt_path)
-        # x = [Phoneme.folded_phoneme_list[s] for s in sentence]
-        # print(x)
-        # y = [Phoneme.folded_phoneme_list[pn.symbol_idx] for pn in phonemes]
-        # print(y)
-        return waveform, phonemes, sentence, recording_path['is_sa_file'], recording_path['is_core_test']
+        return waveform, phonemes, recording_path['is_sa_file'], recording_path['is_core_test']
 
     def __len__(self):
-        return self.n_recordings
+        return self.n_records

@@ -35,9 +35,10 @@ class Phoneme():
         'ey', 'f', 'g', 'hh', 'ih', 'ix', 'iy', 'jh', 'k',
         'l', 'm', 'n', 'ng', 'ow', 'oy', 'p', 'r', 's', 'sh',
         'sil', 't', 'th', 'uh', 'uw', 'v', 'vcl', 'w',
-        'y', 'z', 'zh', 'q'
+        'y', 'z', 'zh'
     ]
-
+    
+    # CURRENTLY NOT USED: can be used as class weights
     folded_phoneme_weights = torch.tensor([
         1.05, 1.17, 1.02, 1.96, 4.25, 0.94, 1.52, 1.4, 3.83, 0.29,
         1.16, 1.25, 1.49, 0.88, 3.82, 5.77, 4.0, 0.69, 1.33, 1.38,
@@ -47,7 +48,7 @@ class Phoneme():
     ])
 
     symbol_to_folded_group = {
-        **dict.fromkeys(['cl', 'vcl', 'epi', 'q'], 'sil'),
+        **dict.fromkeys(['cl', 'vcl', 'epi'], 'sil'),
         'el': 'l',
         'en': 'n',
         'sh': 'zh',
@@ -65,14 +66,13 @@ class Phoneme():
 
     word_to_phoneme_dict = {}
 
-    def __init__(self, start, stop, symbol_idx):
+    def __init__(self, start, stop, symbol):
         self.start = start
         self.stop = stop
-        self.symbol_idx = symbol_idx
+        self.symbol = symbol
 
     def __str__(self):
-        return f'{self.start}-{self.stop}: {Phoneme.folded_phoneme_list[self.symbol_idx]}'
-        # return f'{self.start}-{self.stop}: {self.symbol_idx}'
+        return f'{self.start}-{self.stop}: {symbol}'
 
     def __repr__(self):
         return self.__str__()
@@ -98,57 +98,16 @@ class Phoneme():
             phonemes = []
             for row in reader:
                 symbol = cls.strip_digits(row[2])
-                # if symbol == 'q':
-                #     continue
+                if symbol == 'q':
+                    continue
                 symbol = cls.symbol_to_folded.get(symbol, symbol)
                 start = int(row[0])
                 stop = int(row[1])
-                symbol_idx = cls.folded_phoneme_list.index(symbol)
-                phoneme = Phoneme(start, stop, symbol_idx)
+                phoneme = Phoneme(start, stop, symbol)
                 phonemes.append(phoneme)
 
         return phonemes
 
-
     @classmethod
-    def load_phoneme_dict(cls):
-        phonemes = []
-        with open(DICT_PATH) as dict_file:
-            reader = csv.reader(dict_file, delimiter='/')
-            i = 0
-            for row in reader:
-                if row[0][0] == ';':
-                    continue
-                word = row[0][:-2]
-                if '~' in word:
-                    word = word[:word.index('~')]
-                word = word.replace('.', '')
-                pn_symbols = row[1].split(' ')
-                pn_symbols = [cls.strip_digits(s) for s in pn_symbols]
-                pn_symbols = [cls.symbol_to_folded.get(s, s) for s in pn_symbols]
-                pn_symbols = [cls.symbol_to_folded_group.get(s, s) for s in pn_symbols]
-                pn_indices = [cls.folded_group_phoneme_list.index(s) for s in pn_symbols]
-                cls.word_to_phoneme_dict[word] = pn_indices
-        
-    @classmethod
-    def get_phonemified_sentence_from_file(cls, path):
-        silence_idx = cls.folded_group_phoneme_list.index('sil')
-        phonemes_indizes = [silence_idx]
-        with open(path) as txt_file:
-            reader = csv.reader(txt_file, delimiter=' ')
-            sentence_objects = list(reader)[0][2:]
-            words = []
-            for obj in sentence_objects:
-                words.extend(obj.split(' '))
-            # print(' '.join(words))
-            i = 0
-            for word in words:
-                if word in ['', '--']:
-                    continue
-                word = ''.join(e for e in word if e.isalnum() or e in ['-', "'"])
-                word_pns = cls.word_to_phoneme_dict[word.lower()]
-                phonemes_indizes.extend(word_pns)
-        phonemes_indizes.append(silence_idx)
-        phonemes_indizes = torch.tensor(phonemes_indizes)
-        return phonemes_indizes
-    
+    def symbol_to_folded_group_index(cls, symbol):
+        return Phoneme.folded_group_phoneme_list.index(Phoneme.symbol_to_folded_group.get(symbol, symbol))

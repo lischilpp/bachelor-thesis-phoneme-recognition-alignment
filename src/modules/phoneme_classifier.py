@@ -6,6 +6,7 @@ import pytorch_lightning as pl
 from Levenshtein import distance as levenshtein_distance
 from dtw import dtw
 import matplotlib.pyplot as plt
+import math
 
 from settings import *
 from phonemes import Phoneme
@@ -90,7 +91,7 @@ class PhonemeClassifier(pl.LightningModule):
 
     def get_alignments(self, out_folded, sentences, lengths, batch_size):
         preds_folded = [torch.zeros(l, dtype=torch.int32, device=self.device) for l in lengths]
-        probability_distance = lambda x, y: 1 - pow(x[y], 0.01)
+        probability_distance = lambda x, y: 1 - pow(x[y], 0.01) # math.exp(-x[y])
         for i in range(batch_size):
             _, _, _, path = dtw(out_folded[i], sentences[i], dist=probability_distance)
             for j in range(lengths[i]):
@@ -105,7 +106,7 @@ class PhonemeClassifier(pl.LightningModule):
                     boundary_indices[i].append(j-1)
         return boundary_indices
 
-    def calculate_alignment_accuracy(self, preds_folded, labels_folded, lengths, batch_size):
+    def calculate_alignment_accuracy(self, preds_folded, labels_folded, lengths, batch_size, sentences):
         predicted_boundary_indices = self.get_phoneme_boundary_indices(preds_folded, lengths, batch_size)
         actual_boundary_indices = self.get_phoneme_boundary_indices(labels_folded, lengths, batch_size)
 
@@ -114,6 +115,12 @@ class PhonemeClassifier(pl.LightningModule):
         for i in range(batch_size):
             # print('---')
             # print(preds_folded[i])
+            if len(predicted_boundary_indices[i]) != len(actual_boundary_indices[i]):
+                print('--')
+                # print(predicted_boundary_indices[i])
+                # print(actual_boundary_indices[i])
+                print(sentences[i])
+                print(labels_folded[i])
             n_correct_i = sum([1 for x, y in zip(predicted_boundary_indices[i], actual_boundary_indices[i]) if abs(x-y) < 2])
             n_correct += n_correct_i
             # print(labels_folded[i])
@@ -148,11 +155,11 @@ class PhonemeClassifier(pl.LightningModule):
         if mode == 'val':
             return loss, recognition_accuracy, recognition_per
 
-        self.confmatMetric(torch.cat(preds_folded), torch.cat(labels_folded))
         out = [x.softmax(0) for x in out]
         out_folded = self.fold_probabilities(out, batch_size, lengths)
         preds_folded = self.get_alignments(out_folded, sentences, lengths, batch_size)
-        alignment_accuracy = self.calculate_alignment_accuracy(preds_folded, labels_folded, lengths, batch_size)
+        alignment_accuracy = self.calculate_alignment_accuracy(preds_folded, labels_folded, lengths, batch_size, sentences)
+        self.confmatMetric(torch.cat(preds_folded), torch.cat(labels_folded))
 
         return loss, recognition_accuracy, recognition_per, alignment_accuracy
 

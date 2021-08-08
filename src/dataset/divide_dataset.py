@@ -32,7 +32,7 @@ DiskDataset.write(val_ds, VAL_PATH)
 print('processing test dataset...')
 core_test_ds = []
 for entry in test_ds:
-    _, _, _, _, is_core_test = entry
+    _, _, _, is_core_test = entry
     if is_core_test:
         core_test_ds.append(entry)
 
