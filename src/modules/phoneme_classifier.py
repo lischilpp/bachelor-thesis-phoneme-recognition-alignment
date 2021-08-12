@@ -31,7 +31,7 @@ class PhonemeClassifier(pl.LightningModule):
                                                    min_lr=min_lr,
                                                    lr_patience=lr_patience,
                                                    lr_reduce_factor=lr_reduce_factor,
-                                                   lr_reduce_metric='val_PER',
+                                                   lr_reduce_metric='val_loss',
                                                    steps_per_epoch=steps_per_epoch,
                                                    optimizer=self.optimizer)
         self.confmatMetric = ConfusionMatrix(num_classes=Phoneme.folded_group_phoneme_count())
@@ -150,7 +150,10 @@ class PhonemeClassifier(pl.LightningModule):
         preds_folded = self.foldGroupIndices(preds, lengths)
         labels_folded = self.foldGroupIndices(labels, lengths)
         recognition_per = self.calculate_per(preds_folded, labels_folded, lengths)
-        recognition_accuracy = FM.accuracy(torch.cat(preds_folded), torch.cat(labels_folded))
+        preds_flat = torch.cat(preds_folded)
+        labels_flat = torch.cat(labels_folded)
+        preds_flat, labels_flat = self.remove_silences(preds_flat, labels_flat)
+        recognition_accuracy = FM.accuracy(preds_flat, labels_flat)
 
         if mode == 'val':
             return loss, recognition_accuracy, recognition_per
