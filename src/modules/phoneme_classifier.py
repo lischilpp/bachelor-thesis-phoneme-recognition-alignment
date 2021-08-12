@@ -121,7 +121,7 @@ class PhonemeClassifier(pl.LightningModule):
                 # print(actual_boundary_indices[i])
                 print(sentences[i])
                 print(labels_folded[i])
-            n_correct_i = sum([1 for x, y in zip(predicted_boundary_indices[i], actual_boundary_indices[i]) if abs(x-y) < 1])
+            n_correct_i = sum([1 for x, y in zip(predicted_boundary_indices[i], actual_boundary_indices[i]) if abs(x-y) < 2])
 
             # accuracy_i = n_correct_i / len(actual_boundary_indices[i])
             # if accuracy_i < 0.8:
@@ -140,6 +140,12 @@ class PhonemeClassifier(pl.LightningModule):
         
         return n_correct / n_boundaries
 
+    def element_weighted_loss(self, preds, labels, weights):
+        m = torch.nn.LogSoftmax(dim=1)
+        criterion = torch.nn.NLLLoss(reduction='none')
+        loss = criterion(m(preds), labels) * weights
+        return loss.sum() / weights.sum()
+
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels, sentences = batch
 
@@ -148,8 +154,18 @@ class PhonemeClassifier(pl.LightningModule):
         batch_size = fbank.size(0)
         labels = self.remove_padding(labels, lengths)
         out = self.remove_padding(out, lengths)
-
-        loss = self.criterion(torch.cat(out), torch.cat(labels))
+        out_flat    = torch.cat(out)
+        labels_flat = torch.cat(labels)
+        loss_weights = torch.ones(len(labels_flat), device=self.device)
+        for i in range(2, len(labels_flat)-1):
+            if labels_flat[i-1] != labels_flat[i]:
+                loss_weights[i-2] = 50
+                loss_weights[i-1] = 100
+                loss_weights[i]   = 100
+                loss_weights[i+1]   = 50
+        
+        # loss = self.criterion(torch.cat(out), torch.cat(labels))
+        loss = self.element_weighted_loss(out_flat, labels_flat, loss_weights)
 
         if mode == 'train':
             return loss
