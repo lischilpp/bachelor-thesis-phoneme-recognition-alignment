@@ -17,7 +17,7 @@ class FrameDataset(torch.utils.data.Dataset):
 
     def get_frame_labels_and_sentence(self, phonemes, n_samples):
         labels = []
-        sentence = [Phoneme.folded_phoneme_list.index(phonemes[0].symbol)]
+        sentence = [Phoneme.symbol_to_folded_group_index(phonemes[0].symbol)]
         pn_idx = 0
         label_idx = 0
         x = 0

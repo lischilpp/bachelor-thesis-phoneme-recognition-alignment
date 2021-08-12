@@ -121,7 +121,15 @@ class PhonemeClassifier(pl.LightningModule):
                 # print(actual_boundary_indices[i])
                 print(sentences[i])
                 print(labels_folded[i])
-            n_correct_i = sum([1 for x, y in zip(predicted_boundary_indices[i], actual_boundary_indices[i]) if abs(x-y) < 2])
+            n_correct_i = sum([1 for x, y in zip(predicted_boundary_indices[i], actual_boundary_indices[i]) if abs(x-y) < 1])
+
+            # accuracy_i = n_correct_i / len(actual_boundary_indices[i])
+            # if accuracy_i < 0.8:
+            #     print('----')
+            #     print(sentences[i])
+            #     print(preds_folded[i])
+            #     print(labels_folded[i])
+
             n_correct += n_correct_i
             # print(labels_folded[i])
             # for j in range(len(actual_boundary_indices[i])):
