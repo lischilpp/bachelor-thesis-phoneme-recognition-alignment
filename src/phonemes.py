@@ -13,7 +13,7 @@ class Phoneme():
         'gcl', 'h#', 'hh', 'hv', 'ih', 'ix', 'iy', 'jh', 'k',
         'kcl', 'l', 'm', 'n', 'ng', 'nx', 'ow', 'oy', 'p',
         'pau', 'pcl', 'r', 's', 'sh', 't', 'tcl', 'th',
-        'uh', 'uw', 'ux', 'v', 'w', 'y', 'z', 'zh'
+        'uh', 'uw', 'ux', 'v', 'w', 'y', 'z', 'zh', 'q'
     ]
 
     symbol_to_folded = {

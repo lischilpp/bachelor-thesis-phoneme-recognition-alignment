@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt
 from dataset.disk_dataset import DiskDataset
 
 
-num_epochs = 100
-batch_size = 32
-initial_lr = 0.001
-min_lr = 1e-8
+num_epochs = 300
+batch_size = 16
+initial_lr = 0.002
+min_lr = 1e-10
 lr_patience = 0
 lr_reduce_factor = 0.4
 auto_lr_find=False
@@ -49,8 +49,8 @@ if __name__ == '__main__':
                          precision=16,
                          gradient_clip_val=0.5,
                          num_sanity_val_steps=0,
-                         callbacks=[ModelCheckpoint(monitor='val_PER'),
-                                    EarlyStopping(monitor='val_PER', patience=3)])
+                         callbacks=[ModelCheckpoint(monitor='val_loss'),
+                                    EarlyStopping(monitor='val_loss', patience=10)])
     # resume_from_checkpoint='lightning_logs/version_2582/checkpoints/epoch=23-step=2639.ckpt')
     
 
