@@ -5,6 +5,7 @@ from settings import *
 import torch
 import warnings
 import torchaudio.compliance.kaldi as kaldi
+from spafe.features.lpc import lpc, lpcc
 
 
 class FrameDataset(torch.utils.data.Dataset):
@@ -39,12 +40,26 @@ class FrameDataset(torch.utils.data.Dataset):
         return torch.tensor(labels), sentence
 
     def create_fbank(self, waveform):
-        fbank = kaldi.fbank(
-            waveform,
-            frame_length=FRAME_LENGTH,
-            frame_shift=STRIDE,
-            num_mel_bins=N_MELS)
-        return fbank
+        return kaldi.fbank(
+                 waveform,
+                 frame_length=FRAME_LENGTH,
+                 frame_shift=STRIDE,
+                 num_mel_bins=N_MELS)
+
+    def create_mfcc(self, waveform):
+        return kaldi.mfcc(
+                 waveform,
+                 frame_length=FRAME_LENGTH,
+                 frame_shift=STRIDE,
+                 num_ceps=N_CEPS)
+
+    def create_lpc(self, waveform):
+        return torch.from_numpy(lpcc(
+                 sig=waveform,
+                 fs=SAMPLE_RATE,
+                 num_ceps=N_CEPS,
+                 lifter=0,
+                 normalize=True)).float()
 
     def __getitem__(self, i):
         record = self.root_ds[i]
@@ -52,6 +67,9 @@ class FrameDataset(torch.utils.data.Dataset):
             record = augment_record(record)
         waveform, phonemes = record
         fbank = self.create_fbank(waveform.view(1, -1))
+        mfcc = self.create_mfcc(waveform.view(1, -1))
+        lpc = self.create_lpc(waveform)[:fbank.size(0)]
+        fbank = torch.cat((fbank, mfcc, lpc), dim=1)
         if self.augment:
             fbank = augment_fbank(fbank)
         labels, sentence = self.get_frame_labels_and_sentence(phonemes, len(waveform))

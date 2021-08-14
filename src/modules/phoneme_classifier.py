@@ -44,13 +44,6 @@ class PhonemeClassifier(pl.LightningModule):
         self.log('lr', self.optimizer.param_groups[0]['lr'], prog_bar=True)
         return loss
 
-    def remove_silences(self, preds, labels):
-        sil_idx = Phoneme.folded_phoneme_list.index('sil')
-        non_glottal_indices = torch.nonzero(labels.ne(sil_idx))
-        preds = preds[non_glottal_indices]
-        labels = labels[non_glottal_indices]
-        return preds, labels
-
     def validation_step(self, batch, step_index):
         self.model.eval()
         loss, recognition_accuracy, recognition_per = self.calculate_metrics(batch, mode='val')
@@ -75,6 +68,51 @@ class PhonemeClassifier(pl.LightningModule):
             'test_alignment_accuracy': alignment_accuracy}
         self.log_dict(metrics, prog_bar=True)
 
+    def calculate_metrics(self, batch, mode):
+        (fbank, lengths), labels, sentences = batch
+
+        out = self.model(fbank)
+
+        batch_size = fbank.size(0)
+        labels = self.remove_padding(labels, lengths)
+        out    = self.remove_padding(out, lengths)
+        out_flat    = torch.cat(out)
+        labels_flat = torch.cat(labels)
+        
+        loss = self.criterion(out_flat, labels_flat)
+        # loss_weights = self.get_phoneme_boundary_loss_weights(labels_flat)
+        # loss = self.element_weighted_loss(out_flat, labels_flat, loss_weights)
+
+        if mode == 'train':
+            return loss
+
+        preds = [o.argmax(1) for o in out]
+        preds_folded = self.foldGroupIndices(preds, lengths)
+        labels_folded = self.foldGroupIndices(labels, lengths)
+        recognition_per = self.calculate_per(preds_folded, labels_folded, lengths)
+        preds_flat = torch.cat(preds_folded)
+        labels_flat = torch.cat(labels_folded)
+        preds_flat, labels_flat = self.remove_silences(preds_flat, labels_flat)
+        recognition_accuracy = FM.accuracy(preds_flat, labels_flat)
+
+        if mode == 'val':
+            return loss, recognition_accuracy, recognition_per
+
+        out = [x.softmax(0) for x in out]
+        out_folded = self.fold_probabilities(out, batch_size, lengths)
+        preds_folded = self.get_alignments(out_folded, sentences, lengths, batch_size)
+        alignment_accuracy = self.calculate_alignment_accuracy(preds_folded, labels_folded, lengths, batch_size, sentences)
+        self.confmatMetric(preds_flat, labels_flat)
+
+        return loss, recognition_accuracy, recognition_per, alignment_accuracy
+
+    def remove_silences(self, preds, labels):
+        sil_idx = Phoneme.folded_phoneme_list.index('sil')
+        non_glottal_indices = torch.nonzero(labels.ne(sil_idx))
+        preds = preds[non_glottal_indices]
+        labels = labels[non_glottal_indices]
+        return preds, labels
+
     def configure_optimizers(self):
         return self.optimizer
 
@@ -91,8 +129,10 @@ class PhonemeClassifier(pl.LightningModule):
 
     def get_alignments(self, out_folded, sentences, lengths, batch_size):
         preds_folded = [torch.zeros(l, dtype=torch.int32, device=self.device) for l in lengths]
-        probability_distance = lambda x, y: 1 - pow(x[y], 0.01) # math.exp(-x[y])
+        # b = 2
+        # k = 2#math.pow(b, -k*x[y])-pow(b,-k)#1 - pow(x[y], 0.01) # math.exp(-x[y])
         for i in range(batch_size):
+            probability_distance = lambda x, y: 1 - pow(x[y], 0.001)
             _, _, _, path = dtw(out_folded[i], sentences[i], dist=probability_distance)
             for j in range(lengths[i]):
                 preds_folded[i][j] = sentences[i][path[1][j]]
@@ -146,16 +186,7 @@ class PhonemeClassifier(pl.LightningModule):
         loss = criterion(m(preds), labels) * weights
         return loss.sum() / weights.sum()
 
-    def calculate_metrics(self, batch, mode):
-        (fbank, lengths), labels, sentences = batch
-
-        out = self.model(fbank)
-
-        batch_size = fbank.size(0)
-        labels = self.remove_padding(labels, lengths)
-        out = self.remove_padding(out, lengths)
-        out_flat    = torch.cat(out)
-        labels_flat = torch.cat(labels)
+    def get_phoneme_boundary_loss_weights(self, labels_flat):
         loss_weights = torch.ones(len(labels_flat), device=self.device)
         for i in range(2, len(labels_flat)-1):
             if labels_flat[i-1] != labels_flat[i]:
@@ -163,34 +194,8 @@ class PhonemeClassifier(pl.LightningModule):
                 loss_weights[i-1] = 100
                 loss_weights[i]   = 100
                 loss_weights[i+1]   = 50
-        
-        # loss = self.criterion(torch.cat(out), torch.cat(labels))
-        loss = self.element_weighted_loss(out_flat, labels_flat, loss_weights)
+        return loss_weights
 
-        if mode == 'train':
-            return loss
-
-        preds = [o.argmax(1) for o in out]
-        preds_folded = self.foldGroupIndices(preds, lengths)
-        labels_folded = self.foldGroupIndices(labels, lengths)
-        recognition_per = self.calculate_per(preds_folded, labels_folded, lengths)
-        preds_flat = torch.cat(preds_folded)
-        labels_flat = torch.cat(labels_folded)
-        preds_flat, labels_flat = self.remove_silences(preds_flat, labels_flat)
-        recognition_accuracy = FM.accuracy(preds_flat, labels_flat)
-
-        if mode == 'val':
-            return loss, recognition_accuracy, recognition_per
-
-        out = [x.softmax(0) for x in out]
-        out_folded = self.fold_probabilities(out, batch_size, lengths)
-        preds_folded = self.get_alignments(out_folded, sentences, lengths, batch_size)
-        alignment_accuracy = self.calculate_alignment_accuracy(preds_folded, labels_folded, lengths, batch_size, sentences)
-        self.confmatMetric(torch.cat(preds_folded), torch.cat(labels_folded))
-
-        return loss, recognition_accuracy, recognition_per, alignment_accuracy
-
-    
     def calculate_per(self, preds, labels, lengths):
         pn_labels_pred = self.get_phoneme_labels(preds, lengths)
         pn_labels_correct = self.get_phoneme_labels(labels, lengths)
@@ -210,7 +215,7 @@ class PhonemeClassifier(pl.LightningModule):
         for i in range(lengths.size(0)):
             pn_labels.append([segment_labels[i][0]])
             pn_labels[i].extend(segment_labels[i][j]
-                             for j in range(lengths[i])
+                             for j in range(1, lengths[i])
                              if segment_labels[i][j] != segment_labels[i][j-1])
         return pn_labels
     
@@ -224,7 +229,7 @@ class PhonemeClassifier(pl.LightningModule):
                 indizes[i][j] = Phoneme.folded_group_phoneme_list.index(Phoneme.symbol_to_folded_group.get(symbol, symbol))
         return indizes
 
-    # hide v_num in progres bar
+    # hide v_num in progres bar in terminal window
     def get_progress_bar_dict(self):
         tqdm_dict = super().get_progress_bar_dict()
         if 'v_num' in tqdm_dict:

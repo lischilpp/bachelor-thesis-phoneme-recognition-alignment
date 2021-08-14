@@ -8,7 +8,7 @@ class GRUModel(nn.Module):
     def __init__(self, output_size):
         super().__init__()
         self.output_size = output_size
-        self.rnn = nn.GRU(input_size=N_MELS,
+        self.rnn = nn.GRU(input_size=N_MELS+2*N_CEPS,
                            hidden_size=512,
                            num_layers=8,
                            batch_first=True, bidirectional=True, dropout=0.1)

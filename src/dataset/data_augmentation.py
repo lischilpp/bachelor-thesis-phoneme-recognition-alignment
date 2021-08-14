@@ -14,8 +14,8 @@ pitch_shift_min = -4
 pitch_shift_max = 4  # 4 semitones
 
 time_stretch_probability = 1
-time_stretch_min = 0.85
-time_stretch_max = 1.25
+time_stretch_min = 0.9
+time_stretch_max = 1.1
 
 frequency_mask_probability = 0
 frequency_mask_height = 20
