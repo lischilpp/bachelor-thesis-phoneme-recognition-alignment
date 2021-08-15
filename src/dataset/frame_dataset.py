@@ -51,9 +51,10 @@ class FrameDataset(torch.utils.data.Dataset):
                  waveform,
                  frame_length=FRAME_LENGTH,
                  frame_shift=STRIDE,
+                 num_mel_bins=N_MELS,
                  num_ceps=N_CEPS)
 
-    def create_lpc(self, waveform):
+    def create_lpcc(self, waveform):
         return torch.from_numpy(lpcc(
                  sig=waveform,
                  fs=SAMPLE_RATE,
@@ -67,9 +68,8 @@ class FrameDataset(torch.utils.data.Dataset):
             record = augment_record(record)
         waveform, phonemes = record
         fbank = self.create_fbank(waveform.view(1, -1))
-        mfcc = self.create_mfcc(waveform.view(1, -1))
-        lpc = self.create_lpc(waveform)[:fbank.size(0)]
-        fbank = torch.cat((fbank, mfcc, lpc), dim=1)
+        # fbank = self.create_mfcc(waveform.view(1, -1))
+        # fbank = torch.cat((fbank, mfcc), dim=1)
         if self.augment:
             fbank = augment_fbank(fbank)
         labels, sentence = self.get_frame_labels_and_sentence(phonemes, len(waveform))

@@ -28,7 +28,7 @@ class PhonemeClassifier(pl.LightningModule):
         self.optimizer = torch.optim.AdamW(
             self.parameters(), lr=self.lr)
         self.lr_scheduler = CyclicPlateauScheduler(initial_lr=self.lr,
-                                                   min_lr=min_lr,
+                                                   min_improve_factor=0.95,
                                                    lr_patience=lr_patience,
                                                    lr_reduce_factor=lr_reduce_factor,
                                                    lr_reduce_metric='val_loss',

@@ -1,10 +1,11 @@
 
 class CyclicPlateauScheduler():
 
-    def __init__(self, initial_lr, min_lr, lr_patience, lr_reduce_factor, lr_reduce_metric, steps_per_epoch, optimizer):
+    def __init__(self, steps_per_epoch, optimizer, initial_lr=0.001, min_lr=1e-8, min_improve_factor=0.999, lr_patience=0, lr_reduce_factor=0.5, lr_reduce_metric='val_loss'):
         super().__init__()
         self.lr = initial_lr
         self.min_lr = min_lr
+        self.min_improve_factor = min_improve_factor
         self.lr_patience = lr_patience
         self.lr_reduce_factor = lr_reduce_factor
         self.lr_reduce_metric = lr_reduce_metric
@@ -26,7 +27,7 @@ class CyclicPlateauScheduler():
 
     def validation_epoch_end(self, val_step_outputs): # plateau scheduler
         reduce_metric_val = sum([output[self.lr_reduce_metric] for output in val_step_outputs]) / len(val_step_outputs)
-        if reduce_metric_val > self.last_lr_metric_val * 0.95:
+        if reduce_metric_val > self.last_lr_metric_val * self.min_improve_factor:
             self.reduce_metric_too_high_count += 1
         if self.reduce_metric_too_high_count > self.lr_patience:
             self.lr = max(self.lr * self.lr_reduce_factor, self.min_lr)
