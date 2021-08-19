@@ -14,10 +14,10 @@ from dataset.disk_dataset import DiskDataset
 
 num_epochs = 300
 batch_size = 16
-initial_lr = 0.002
+initial_lr = 5e-4
 min_lr = 1e-10
 lr_patience = 0
-lr_reduce_factor = 0.4
+lr_reduce_factor = 0.5
 auto_lr_find=False
 
 
@@ -42,7 +42,7 @@ if __name__ == '__main__':
                               min_lr,
                               lr_patience,
                               lr_reduce_factor,
-                              len(DiskDataset(TRAIN_PATH)))
+                              steps_per_epoch=len(DiskDataset(TRAIN_PATH)) / batch_size)
     trainer = pl.Trainer(gpus=1,
                          max_epochs=num_epochs,
                          auto_lr_find=auto_lr_find,
@@ -60,5 +60,5 @@ if __name__ == '__main__':
     else:
         trainer.fit(model, dm)
         trainer.test(datamodule=dm)
-        confmat = model.confmatMetric.compute()
+        confmat = model.confmat_metric.compute()
         show_confusion_matrix(confmat)

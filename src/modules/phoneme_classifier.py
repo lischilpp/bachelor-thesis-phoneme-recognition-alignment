@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchmetrics import ConfusionMatrix
+from torchmetrics import ConfusionMatrix, F1
 import torchmetrics.functional as FM
 import pytorch_lightning as pl
 from Levenshtein import distance as levenshtein_distance
@@ -28,13 +28,14 @@ class PhonemeClassifier(pl.LightningModule):
         self.optimizer = torch.optim.AdamW(
             self.parameters(), lr=self.lr)
         self.lr_scheduler = CyclicPlateauScheduler(initial_lr=self.lr,
-                                                   min_improve_factor=0.95,
+                                                   min_improve_factor=0.96,
                                                    lr_patience=lr_patience,
                                                    lr_reduce_factor=lr_reduce_factor,
                                                    lr_reduce_metric='val_loss',
                                                    steps_per_epoch=steps_per_epoch,
                                                    optimizer=self.optimizer)
-        self.confmatMetric = ConfusionMatrix(num_classes=Phoneme.folded_group_phoneme_count())
+        self.confmat_metric = ConfusionMatrix(num_classes=Phoneme.folded_group_phoneme_count())
+        self.f1_metric = F1(num_classes=Phoneme.folded_group_phoneme_count())
 
     def training_step(self, batch, step_index):
         self.model.train()
@@ -60,11 +61,12 @@ class PhonemeClassifier(pl.LightningModule):
 
     def test_step(self, batch, _):
         self.model.eval()
-        loss, recognition_accuracy, recognition_per, alignment_accuracy = self.calculate_metrics(batch, mode='test')
+        loss, recognition_accuracy, recognition_per, alignment_accuracy, f1_score = self.calculate_metrics(batch, mode='test')
         metrics = {
             'test_loss': loss,
             'test_FER': 1-recognition_accuracy,
             'test_PER': recognition_per,
+            'test_f1': f1_score,
             'test_alignment_accuracy': alignment_accuracy}
         self.log_dict(metrics, prog_bar=True)
 
@@ -80,8 +82,8 @@ class PhonemeClassifier(pl.LightningModule):
         labels_flat = torch.cat(labels)
         
         loss = self.criterion(out_flat, labels_flat)
-        # loss_weights = self.get_phoneme_boundary_loss_weights(labels_flat)
-        # loss = self.element_weighted_loss(out_flat, labels_flat, loss_weights)
+        # # loss_weights = self.get_phoneme_boundary_loss_weights(labels_flat)
+        # # loss = self.element_weighted_loss(out_flat, labels_flat, loss_weights)
 
         if mode == 'train':
             return loss
@@ -98,13 +100,14 @@ class PhonemeClassifier(pl.LightningModule):
         if mode == 'val':
             return loss, recognition_accuracy, recognition_per
 
+        f1_score = self.f1_metric(preds_flat, labels_flat)
         out = [x.softmax(0) for x in out]
         out_folded = self.fold_probabilities(out, batch_size, lengths)
         preds_folded = self.get_alignments(out_folded, sentences, lengths, batch_size)
         alignment_accuracy = self.calculate_alignment_accuracy(preds_folded, labels_folded, lengths, batch_size, sentences)
-        self.confmatMetric(preds_flat, labels_flat)
+        self.confmat_metric(preds_flat, labels_flat)
 
-        return loss, recognition_accuracy, recognition_per, alignment_accuracy
+        return loss, recognition_accuracy, recognition_per, alignment_accuracy, f1_score
 
     def remove_silences(self, preds, labels):
         sil_idx = Phoneme.folded_phoneme_list.index('sil')
