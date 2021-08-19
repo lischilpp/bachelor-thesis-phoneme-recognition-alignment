@@ -51,8 +51,7 @@ if __name__ == '__main__':
                          num_sanity_val_steps=0,
                          callbacks=[ModelCheckpoint(monitor='val_loss'),
                                     EarlyStopping(monitor='val_loss', patience=10)])
-    # resume_from_checkpoint='lightning_logs/version_2633/checkpoints/epoch=10-step=2419.ckpt')
-    # resume_from_checkpoint='lightning_logs/version_2616/checkpoints/epoch=14-step=3299.ckpt')
+    # resume_from_checkpoint='lightning_logs/version_2778/checkpoints/epoch=16-step=3739.ckpt')
     
 
     if auto_lr_find:

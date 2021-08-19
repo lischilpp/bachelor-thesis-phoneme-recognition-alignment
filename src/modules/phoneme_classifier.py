@@ -41,34 +41,36 @@ class PhonemeClassifier(pl.LightningModule):
         self.model.train()
         loss = self.calculate_metrics(batch, mode='train')
         self.lr_scheduler.step(step_index)
-        self.log('train_loss', loss)
-        self.log('lr', self.optimizer.param_groups[0]['lr'], prog_bar=True)
+        self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=False)
+        self.log('lr', self.optimizer.param_groups[0]['lr'], on_step=True, on_epoch=False, prog_bar=True, logger=True)
         return loss
 
     def validation_step(self, batch, step_index):
         self.model.eval()
         loss, recognition_accuracy, recognition_per = self.calculate_metrics(batch, mode='val')
         self.lr_scheduler.step(step_index)
-        metrics = {
-            'val_loss': loss,
-            'val_FER': 1-recognition_accuracy,
-            'val_PER': recognition_per}
-        self.log_dict(metrics, prog_bar=True)
-        return metrics
+        self.log('val_loss', loss, on_epoch=True, prog_bar=True, logger=False)
+        self.log('val_FER', 1-recognition_accuracy, on_epoch=True, prog_bar=True, logger=True)
+        self.log('val_PER', recognition_per, on_epoch=True, prog_bar=True, logger=True)
+        return loss
 
-    def validation_epoch_end(self, val_step_outputs): # plateau scheduler
-        self.lr_scheduler.validation_epoch_end(val_step_outputs)
+    def training_epoch_end(self, outputs):
+        loss = torch.mean(torch.tensor([o['loss'] for o in outputs]))
+        self.logger.experiment.add_scalars('losses', {'train_loss': loss}, global_step=self.current_epoch)
+
+    def validation_epoch_end(self, outputs):
+        loss = torch.mean(torch.tensor(outputs))
+        self.logger.experiment.add_scalars('losses', {'val_loss': loss}, global_step=self.current_epoch)
+
 
     def test_step(self, batch, _):
         self.model.eval()
         loss, recognition_accuracy, recognition_per, alignment_accuracy, f1_score = self.calculate_metrics(batch, mode='test')
-        metrics = {
-            'test_loss': loss,
-            'test_FER': 1-recognition_accuracy,
-            'test_PER': recognition_per,
-            'test_f1': f1_score,
-            'test_alignment_accuracy': alignment_accuracy}
-        self.log_dict(metrics, prog_bar=True)
+        self.log('test_loss', loss, on_epoch=True, prog_bar=True, logger=True)
+        self.log('test_FER', 1-recognition_accuracy, on_epoch=True, prog_bar=True, logger=True)
+        self.log('test_PER', recognition_per, on_epoch=True, prog_bar=True, logger=True)
+        self.log('test_f1', f1_score, on_epoch=True, prog_bar=True, logger=True)
+        self.log('test_alignment_accuracy', alignment_accuracy, on_epoch=True, prog_bar=True, logger=True)
 
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels, sentences = batch
@@ -82,8 +84,8 @@ class PhonemeClassifier(pl.LightningModule):
         labels_flat = torch.cat(labels)
         
         loss = self.criterion(out_flat, labels_flat)
-        # # loss_weights = self.get_phoneme_boundary_loss_weights(labels_flat)
-        # # loss = self.element_weighted_loss(out_flat, labels_flat, loss_weights)
+        # loss_weights = self.get_phoneme_boundary_loss_weights(labels_flat)
+        # loss = self.element_weighted_loss(out_flat, labels_flat, loss_weights)
 
         if mode == 'train':
             return loss
