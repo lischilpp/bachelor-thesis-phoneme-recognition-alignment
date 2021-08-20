@@ -28,7 +28,7 @@ class PhonemeClassifier(pl.LightningModule):
         self.optimizer = torch.optim.AdamW(
             self.parameters(), lr=self.lr)
         self.lr_scheduler = CyclicPlateauScheduler(initial_lr=self.lr,
-                                                   min_improve_factor=0.96,
+                                                   min_improve_factor=0.97,
                                                    lr_patience=lr_patience,
                                                    lr_reduce_factor=lr_reduce_factor,
                                                    lr_reduce_metric='val_loss',
@@ -40,7 +40,7 @@ class PhonemeClassifier(pl.LightningModule):
     def training_step(self, batch, step_index):
         self.model.train()
         loss = self.calculate_metrics(batch, mode='train')
-        self.lr_scheduler.step(step_index)
+        self.lr_scheduler.training_step(step_index)
         self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=False)
         self.log('lr', self.optimizer.param_groups[0]['lr'], on_step=True, on_epoch=False, prog_bar=True, logger=True)
         return loss
@@ -48,19 +48,20 @@ class PhonemeClassifier(pl.LightningModule):
     def validation_step(self, batch, step_index):
         self.model.eval()
         loss, recognition_accuracy, recognition_per = self.calculate_metrics(batch, mode='val')
-        self.lr_scheduler.step(step_index)
         self.log('val_loss', loss, on_epoch=True, prog_bar=True, logger=False)
         self.log('val_FER', 1-recognition_accuracy, on_epoch=True, prog_bar=True, logger=True)
         self.log('val_PER', recognition_per, on_epoch=True, prog_bar=True, logger=True)
-        return loss
+        return {'val_loss': loss, 'val_FER': 1-recognition_accuracy, 'val_PER': recognition_per}
 
     def training_epoch_end(self, outputs):
         loss = torch.mean(torch.tensor([o['loss'] for o in outputs]))
         self.logger.experiment.add_scalars('losses', {'train_loss': loss}, global_step=self.current_epoch)
 
     def validation_epoch_end(self, outputs):
-        loss = torch.mean(torch.tensor(outputs))
-        self.logger.experiment.add_scalars('losses', {'val_loss': loss}, global_step=self.current_epoch)
+        avg_metrics = {key: torch.mean(torch.tensor([o[key] for o in outputs]))
+                       for key in outputs[0].keys()}
+        self.lr_scheduler.validation_epoch_end(avg_metrics)
+        self.logger.experiment.add_scalars('losses', {'val_loss': avg_metrics['val_loss']}, global_step=self.current_epoch)
 
 
     def test_step(self, batch, _):
