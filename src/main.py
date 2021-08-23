@@ -26,7 +26,8 @@ def show_confusion_matrix(confmat):
 
     class_names = Phoneme.folded_group_phoneme_list
     df_cm = pd.DataFrame(confmat, index=class_names, columns=class_names).astype(int)
-    heatmap = sns.heatmap(df_cm, annot=True, cbar=False, fmt="d")
+    cmap = sns.cubehelix_palette(light=1, as_cmap=True)
+    heatmap = sns.heatmap(df_cm, annot=True, cbar=False, fmt="d", cmap=cmap)
 
     heatmap.yaxis.set_ticklabels(heatmap.yaxis.get_ticklabels(), rotation=0, ha='right',fontsize=15)
     heatmap.xaxis.set_ticklabels(heatmap.xaxis.get_ticklabels(), rotation=45, ha='right',fontsize=15)
@@ -47,11 +48,10 @@ if __name__ == '__main__':
                          max_epochs=num_epochs,
                          auto_lr_find=auto_lr_find,
                          precision=16,
-                         gradient_clip_val=0.5,
                          num_sanity_val_steps=0,
                          callbacks=[ModelCheckpoint(monitor='val_loss'),
                                     EarlyStopping(monitor='val_loss', patience=10)])
-    # resume_from_checkpoint='lightning_logs/version_2778/checkpoints/epoch=16-step=3739.ckpt')
+    # resume_from_checkpoint='lightning_logs/version_23/checkpoints/epoch=21-step=4839.ckpt')
     
 
     if auto_lr_find:

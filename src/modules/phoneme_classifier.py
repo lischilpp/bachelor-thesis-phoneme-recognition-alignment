@@ -104,19 +104,20 @@ class PhonemeClassifier(pl.LightningModule):
             return loss, recognition_accuracy, recognition_per
 
         f1_score = self.f1_metric(preds_flat, labels_flat)
+        self.confmat_metric(preds_flat, labels_flat)
+        
         out = [x.softmax(0) for x in out]
         out_folded = self.fold_probabilities(out, batch_size, lengths)
         preds_folded = self.get_alignments(out_folded, sentences, lengths, batch_size)
         alignment_accuracy = self.calculate_alignment_accuracy(preds_folded, labels_folded, lengths, batch_size, sentences)
-        self.confmat_metric(preds_flat, labels_flat)
 
         return loss, recognition_accuracy, recognition_per, alignment_accuracy, f1_score
 
     def remove_silences(self, preds, labels):
         sil_idx = Phoneme.folded_phoneme_list.index('sil')
         non_glottal_indices = torch.nonzero(labels.ne(sil_idx))
-        preds = preds[non_glottal_indices]
-        labels = labels[non_glottal_indices]
+        preds = preds[non_glottal_indices].flatten()
+        labels = labels[non_glottal_indices].flatten()
         return preds, labels
 
     def configure_optimizers(self):

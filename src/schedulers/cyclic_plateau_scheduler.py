@@ -16,7 +16,7 @@ class CyclicPlateauScheduler():
 
     def training_step(self, step_index): # cyclic scheduler
         half_steps = self.steps_per_epoch // 2
-        min_lr = 1/10 * self.lr
+        min_lr = 1/4 * self.lr
         if step_index < half_steps:
             c = step_index / half_steps
             lr = min_lr + c * (self.lr - min_lr)
