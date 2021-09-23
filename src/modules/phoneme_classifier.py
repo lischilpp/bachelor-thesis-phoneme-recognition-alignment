@@ -11,7 +11,7 @@ import math
 from settings import *
 from phonemes import Phoneme
 from models.gru import GRUModel
-from models.transformer import TransformerModel
+from models.encoder_transformer import EncoderTransformerModel
 from schedulers.cyclic_plateau_scheduler import CyclicPlateauScheduler
 
 
@@ -66,17 +66,18 @@ class PhonemeClassifier(pl.LightningModule):
 
     def test_step(self, batch, _):
         self.model.eval()
-        loss, recognition_accuracy, recognition_per, alignment_accuracy, f1_score = self.calculate_metrics(batch, mode='test')
+        loss, recognition_accuracy, recognition_per, alignment_accuracies, f1_score = self.calculate_metrics(batch, mode='test')
         self.log('test_loss', loss, on_epoch=True, prog_bar=True, logger=True)
         self.log('test_FER', 1-recognition_accuracy, on_epoch=True, prog_bar=True, logger=True)
         self.log('test_PER', recognition_per, on_epoch=True, prog_bar=True, logger=True)
         self.log('test_f1', f1_score, on_epoch=True, prog_bar=True, logger=True)
-        self.log('test_alignment_accuracy', alignment_accuracy, on_epoch=True, prog_bar=True, logger=True)
+        for i in range(len(alignment_accuracies)):
+            self.log(f'test_alignment_accuracy{(i+1)*10}ms', alignment_accuracies[i], on_epoch=True, prog_bar=True, logger=True)
 
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels, sentences = batch
 
-        out = self.model(fbank)
+        out = self.model(fbank, lengths, self.device)
 
         batch_size = fbank.size(0)
         labels = self.remove_padding(labels, lengths)
@@ -84,9 +85,8 @@ class PhonemeClassifier(pl.LightningModule):
         out_flat    = torch.cat(out)
         labels_flat = torch.cat(labels)
         
-        loss = self.criterion(out_flat, labels_flat)
-        # loss_weights = self.get_phoneme_boundary_loss_weights(labels_flat)
-        # loss = self.element_weighted_loss(out_flat, labels_flat, loss_weights)
+        loss_weights = self.get_phoneme_boundary_loss_weights(labels_flat)
+        loss = self.element_weighted_crossentropy_loss(out_flat, labels_flat, loss_weights)
 
         if mode == 'train':
             return loss
@@ -97,7 +97,6 @@ class PhonemeClassifier(pl.LightningModule):
         recognition_per = self.calculate_per(preds_folded, labels_folded, lengths)
         preds_flat = torch.cat(preds_folded)
         labels_flat = torch.cat(labels_folded)
-        preds_flat, labels_flat = self.remove_silences(preds_flat, labels_flat)
         recognition_accuracy = FM.accuracy(preds_flat, labels_flat)
 
         if mode == 'val':
@@ -109,12 +108,12 @@ class PhonemeClassifier(pl.LightningModule):
         out = [x.softmax(0) for x in out]
         out_folded = self.fold_probabilities(out, batch_size, lengths)
         preds_folded = self.get_alignments(out_folded, sentences, lengths, batch_size)
-        alignment_accuracy = self.calculate_alignment_accuracy(preds_folded, labels_folded, lengths, batch_size, sentences)
+        alignment_accuracies = self.calculate_alignment_accuracies(preds_folded, labels_folded, lengths, batch_size, sentences)
 
-        return loss, recognition_accuracy, recognition_per, alignment_accuracy, f1_score
+        return loss, recognition_accuracy, recognition_per, alignment_accuracies, f1_score
 
     def remove_silences(self, preds, labels):
-        sil_idx = Phoneme.folded_phoneme_list.index('sil')
+        sil_idx = Phoneme.folded_group_phoneme_list.index('sil')
         non_glottal_indices = torch.nonzero(labels.ne(sil_idx))
         preds = preds[non_glottal_indices].flatten()
         labels = labels[non_glottal_indices].flatten()
@@ -136,10 +135,8 @@ class PhonemeClassifier(pl.LightningModule):
 
     def get_alignments(self, out_folded, sentences, lengths, batch_size):
         preds_folded = [torch.zeros(l, dtype=torch.int32, device=self.device) for l in lengths]
-        # b = 2
-        # k = 2#math.pow(b, -k*x[y])-pow(b,-k)#1 - pow(x[y], 0.01) # math.exp(-x[y])
         for i in range(batch_size):
-            probability_distance = lambda x, y: 1 - pow(x[y], 0.001)
+            probability_distance = lambda x, y: math.exp(-x[y]) - math.exp(-1)#1 - pow(x[y], 1/2)
             _, _, _, path = dtw(out_folded[i], sentences[i], dist=probability_distance)
             for j in range(lengths[i]):
                 preds_folded[i][j] = sentences[i][path[1][j]]
@@ -153,41 +150,21 @@ class PhonemeClassifier(pl.LightningModule):
                     boundary_indices[i].append(j-1)
         return boundary_indices
 
-    def calculate_alignment_accuracy(self, preds_folded, labels_folded, lengths, batch_size, sentences):
+    def calculate_alignment_accuracies(self, preds_folded, labels_folded, lengths, batch_size, sentences):
         predicted_boundary_indices = self.get_phoneme_boundary_indices(preds_folded, lengths, batch_size)
         actual_boundary_indices = self.get_phoneme_boundary_indices(labels_folded, lengths, batch_size)
 
         n_boundaries = sum([len(b) for b in actual_boundary_indices])
         n_correct = 0
+        assert(STRIDE == 10, 'measuring alignment accuracy is currently only implemented for a 10ms stride')
+        tolerances = [1,2,3,4] # 10, 20, 30, 40ms
+        n_correct = torch.zeros(len(tolerances))
         for i in range(batch_size):
-            # print('---')
-            # print(preds_folded[i])
-            if len(predicted_boundary_indices[i]) != len(actual_boundary_indices[i]):
-                print('--')
-                # print(predicted_boundary_indices[i])
-                # print(actual_boundary_indices[i])
-                print(sentences[i])
-                print(labels_folded[i])
-            n_correct_i = sum([1 for x, y in zip(predicted_boundary_indices[i], actual_boundary_indices[i]) if abs(x-y) < 2])
-
-            # accuracy_i = n_correct_i / len(actual_boundary_indices[i])
-            # if accuracy_i < 0.8:
-            #     print('----')
-            #     print(sentences[i])
-            #     print(preds_folded[i])
-            #     print(labels_folded[i])
-
-            n_correct += n_correct_i
-            # print(labels_folded[i])
-            # for j in range(len(actual_boundary_indices[i])):
-            #     if abs(predicted_boundary_indices[i][j] - actual_boundary_indices[i][j]) > 1:
-            #         print(labels_folded[i][actual_boundary_indices[i][j]])
-            # print(len(actual_boundary_indices[i]))
-            # print(n_correct_i / len(actual_boundary_indices[i]))
-        
+            for j in range(len(tolerances)):
+                n_correct[j] += sum([1 for x, y in zip(predicted_boundary_indices[i], actual_boundary_indices[i]) if abs(x-y) < tolerances[j]])
         return n_correct / n_boundaries
 
-    def element_weighted_loss(self, preds, labels, weights):
+    def element_weighted_crossentropy_loss(self, preds, labels, weights):
         m = torch.nn.LogSoftmax(dim=1)
         criterion = torch.nn.NLLLoss(reduction='none')
         loss = criterion(m(preds), labels) * weights
@@ -204,8 +181,8 @@ class PhonemeClassifier(pl.LightningModule):
         return loss_weights
 
     def calculate_per(self, preds, labels, lengths):
-        pn_labels_pred = self.get_phoneme_labels(preds, lengths)
-        pn_labels_correct = self.get_phoneme_labels(labels, lengths)
+        pn_labels_pred = self.greedy_decoder(preds, lengths)
+        pn_labels_correct = self.greedy_decoder(labels, lengths)
         batch_size = lengths.size(0)
         distances = torch.zeros(batch_size)
         for i in range(batch_size):
@@ -217,7 +194,7 @@ class PhonemeClassifier(pl.LightningModule):
     def remove_padding(self, tensor, lengths):
         return [tensor[i][:lengths[i]] for i in range(tensor.size(0))]
 
-    def get_phoneme_labels(self, segment_labels, lengths):
+    def greedy_decoder(self, segment_labels, lengths):
         pn_labels = []
         for i in range(lengths.size(0)):
             pn_labels.append([segment_labels[i][0]])

@@ -7,8 +7,19 @@ from phonemes import Phoneme
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
     
-# ds = FrameDataset(DiskDataset(TRAIN_PATH), augment=True)
-# fbank, labels = ds[0]
+ds = FrameDataset(DiskDataset(TRAIN_PATH), augment=True)
+
+m = float('inf')
+M = float('-inf')
+for fbank, labels, _, in ds:
+    fbank = ((fbank + 16) * 10).int()
+    m = min(m, fbank.min().item())
+    M = max(M, fbank.max().item())
+    break
+
+print(m)
+print(M)
+
 
 # plt.imshow(fbank.transpose(0, 1))
 # plt.show()
@@ -59,4 +70,4 @@ import torch.nn.functional as F
 # plt.plot(path[0], path[1], 'w')
 # plt.show()
 
-print(Phoneme.folded_group_phoneme_list[16])
+# print(Phoneme.folded_group_phoneme_list[16])

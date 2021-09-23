@@ -6,21 +6,21 @@ from torch.nn import TransformerEncoderLayer, TransformerEncoder
 from settings import *
 
 
-class TransformerModel(nn.Module):
+class EncoderTransformerModel(nn.Module):
 
     def __init__(self, num_classes):
         super().__init__()
         self.num_classes = num_classes
-        self.max_seq_len = 128
+        self.max_seq_len = 1000
         self.ninp = 256
-        self.nhid = 2048
+        self.nhid = 1024
         self.nlayers = 4
         self.nhead = 4
         self.pos_dropout = 0.1
         self.transformer_dropout = 0.1
-        self.linear1 = nn.Linear(N_MELS, self.ninp)
+        self.fc_in = nn.Linear(N_MELS, self.ninp)
         self.pos_encoder = PositionalEncoding(self.ninp, self.pos_dropout, self.max_seq_len)
-        encoder_layer = TransformerEncoderLayer(self.ninp, self.nhead, self.nhid, self.transformer_dropout, activation='gelu')
+        encoder_layer = TransformerEncoderLayer(self.ninp, self.nhead, self.nhid, self.transformer_dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layer, self.nlayers)
         self.decoder = nn.Linear(self.ninp, num_classes)
         self.dropout_layer = nn.Dropout(0.5)
@@ -43,27 +43,14 @@ class TransformerModel(nn.Module):
         return torch.full((size, size), float('-inf'), device=device).triu(1)
 
     def forward(self, src, lengths, device):
-        src = self.linear1(src).transpose(0, 1)
-        splits = src.split(self.max_seq_len, dim=0)
-        src_mask = self.get_nopeek_mask(self.max_seq_len, device)
-        output = torch.zeros(src.size(0), src.size(1), self.ninp, device=device)
-        for i, split in enumerate(splits):
-            nopeek_mask = src_mask
-            padding_mask = None
-            if split.size(0) < self.max_seq_len:
-                padding_mask = self.get_padding_mask(lengths, split.size(0), device)
-                nopeek_mask = src_mask[:split.size(0), :split.size(0)]
-            split = split * math.sqrt(self.ninp)
-            split = self.pos_encoder(split)
-            out = self.transformer_encoder(split,
-                                           nopeek_mask,
-                                           src_key_padding_mask=padding_mask)
-            output[i*self.max_seq_len:(i+1)*self.max_seq_len] = out
-
-        output = self.decoder(output)
-        output = output.transpose(0, 1)
-        # output = self.dropout_layer(output)
-        return output
+        src_mask = self.get_nopeek_mask(src.size(1), device)
+        padding_mask = self.get_padding_mask(lengths, src.size(1), device)
+        src = self.fc_in(src).transpose(0, 1) * math.sqrt(self.ninp)
+        src = self.pos_encoder(src)
+        out = self.transformer_encoder(src=src, src_key_padding_mask=padding_mask)
+        out = self.decoder(out)
+        out = self.dropout_layer(out)
+        return out.transpose(0, 1)
 
 
 # taken from https://pytorch.org/tutorials/beginner/transformer_tutorial.html

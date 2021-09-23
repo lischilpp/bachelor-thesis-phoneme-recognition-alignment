@@ -15,7 +15,7 @@ class GRUModel(nn.Module):
         self.fc = nn.Linear(self.rnn.hidden_size*2, self.output_size)
         self.dropout = nn.Dropout(0.5)
 
-    def forward(self, batch):
+    def forward(self, batch, _lengths, _device):
         out, _ = self.rnn(batch)
         out = self.fc(out)
         out = self.dropout(out)
