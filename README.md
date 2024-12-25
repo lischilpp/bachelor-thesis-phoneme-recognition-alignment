@@ -31,7 +31,7 @@ To run the training and testing process, execute [main.py](https://github.com/li
 ## Main contributions of this work
 ### CyclicPlateau scheduler
 Introduced a scheduler that combines cyclic learning rates with Learning Rate Reduction on Plateau to get the benefits of both techniques.
-Cyclic learning rates prevent getting stuck in poor local minima by exploring a wider range of solutions, while Learning Rate Reduction on Plateau fine-tunes convergence by lowering the learning rate when loss stagnates, enabling precise optimization.
+Cyclic learning rates reduce the risk of getting stuck in poor local minima by exploring a wider range of solutions, while Learning Rate Reduction on Plateau fine-tunes convergence by lowering the learning rate when loss stagnates, enabling precise optimization.
 
 ### Phoneme-boundary weighted loss
 Developed a custom variant of the cross-entropy loss function that assigns higher weight to phoneme boundaries, enhancing the model's ability to accurately detect precise transitions between phonemes.
