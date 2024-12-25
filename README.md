@@ -18,7 +18,6 @@ Apart from that we introduce the CyclicPlateauScheduler, a new learning rate sch
 The code for the initial CNN experiments can be found [here](https://github.com/lischilpp/bachelor-thesis-phoneme-recognition-alignment_cnn)
 
 ## Getting Started
-**Note that I cannot test the functionality at this point in time, since I don't have access to the dataset right now.**
 ### Dependencies
 `pip install seaborn pandas matplotlib torch torchaudio spafe pytorch-lightning torchmetrics dtw-python`
 ### Configuration
