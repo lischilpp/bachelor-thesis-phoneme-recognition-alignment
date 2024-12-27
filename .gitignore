@@ -1,6 +1,8 @@
+.DS_STORE
 __pycache__
 .vscode
-lightning_logs
-data
 .data
-src/test.py
+.venv
+lightning_logs
+timit
+data

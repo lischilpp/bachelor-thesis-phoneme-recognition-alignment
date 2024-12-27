@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
-from torchmetrics import ConfusionMatrix, F1
+from torchmetrics import ConfusionMatrix, F1Score
 import torchmetrics.functional as FM
 import pytorch_lightning as pl
 from Levenshtein import distance as levenshtein_distance
-from dtw import dtw
+from dtaidistance import dtw
 import matplotlib.pyplot as plt
 import math
 
@@ -22,8 +22,9 @@ class PhonemeClassifier(pl.LightningModule):
         super().__init__()
         self.batch_size = batch_size
         self.lr = lr
-        self.num_classes = Phoneme.folded_phoneme_count()
-        self.model = GRUModel(self.num_classes)
+        self.num_classes_train = Phoneme.folded_phoneme_count()
+        self.num_classes_val = Phoneme.folded_group_phoneme_count()
+        self.model = GRUModel(self.num_classes_train)
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.AdamW(
             self.parameters(), lr=self.lr)
@@ -34,45 +35,57 @@ class PhonemeClassifier(pl.LightningModule):
                                                    lr_reduce_metric='val_loss',
                                                    steps_per_epoch=steps_per_epoch,
                                                    optimizer=self.optimizer)
-        self.confmat_metric = ConfusionMatrix(num_classes=Phoneme.folded_group_phoneme_count())
-        self.f1_metric = F1(num_classes=Phoneme.folded_group_phoneme_count())
+        self.confmat_metric = ConfusionMatrix(num_classes=self.num_classes_val, task="multiclass")
+        self.f1_metric = F1Score(num_classes=self.num_classes_val, task="multiclass")
+        self.validation_step_outputs = []
+
 
     def training_step(self, batch, step_index):
         self.model.train()
         loss = self.calculate_metrics(batch, mode='train')
         self.lr_scheduler.training_step(step_index)
-        self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=False)
-        self.log('lr', self.optimizer.param_groups[0]['lr'], on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=False, batch_size=self.batch_size)
+        self.log('lr', self.optimizer.param_groups[0]['lr'], on_step=True, on_epoch=False, prog_bar=True, logger=True, batch_size=self.batch_size)
         return loss
 
     def validation_step(self, batch, step_index):
         self.model.eval()
         loss, recognition_accuracy, recognition_per = self.calculate_metrics(batch, mode='val')
-        self.log('val_loss', loss, on_epoch=True, prog_bar=True, logger=False)
-        self.log('val_FER', 1-recognition_accuracy, on_epoch=True, prog_bar=True, logger=True)
-        self.log('val_PER', recognition_per, on_epoch=True, prog_bar=True, logger=True)
-        return {'val_loss': loss, 'val_FER': 1-recognition_accuracy, 'val_PER': recognition_per}
+        self.log('val_loss', loss, on_epoch=True, prog_bar=True, logger=False, batch_size=self.batch_size)
+        self.log('val_FER', 1-recognition_accuracy, on_epoch=True, prog_bar=True, logger=True, batch_size=self.batch_size)
+        self.log('val_PER', recognition_per, on_epoch=True, prog_bar=True, logger=True, batch_size=self.batch_size)
+        output =  {'val_loss': loss, 'val_FER': 1-recognition_accuracy, 'val_PER': recognition_per}
+        self.validation_step_outputs.append(output)
+        return output
 
-    def training_epoch_end(self, outputs):
+    def on_training_epoch_end(self, outputs):
         loss = torch.mean(torch.tensor([o['loss'] for o in outputs]))
         self.logger.experiment.add_scalars('losses', {'train_loss': loss}, global_step=self.current_epoch)
 
-    def validation_epoch_end(self, outputs):
-        avg_metrics = {key: torch.mean(torch.tensor([o[key] for o in outputs]))
-                       for key in outputs[0].keys()}
+    def on_validation_epoch_end(self):
+        if not self.validation_step_outputs:
+            print("No validation outputs found.")
+            return
+
+        avg_metrics = {key: torch.mean(torch.stack([o[key] for o in self.validation_step_outputs]))
+                    for key in self.validation_step_outputs[0].keys()}
+
         self.lr_scheduler.validation_epoch_end(avg_metrics)
-        self.logger.experiment.add_scalars('losses', {'val_loss': avg_metrics['val_loss']}, global_step=self.current_epoch)
+
+        self.log('losses/val_loss', avg_metrics['val_loss'], on_epoch=True, prog_bar=True, batch_size=self.batch_size)
+
+        self.validation_step_outputs.clear()
 
 
     def test_step(self, batch, _):
         self.model.eval()
         loss, recognition_accuracy, recognition_per, alignment_accuracies, f1_score = self.calculate_metrics(batch, mode='test')
-        self.log('test_loss', loss, on_epoch=True, prog_bar=True, logger=True)
-        self.log('test_FER', 1-recognition_accuracy, on_epoch=True, prog_bar=True, logger=True)
-        self.log('test_PER', recognition_per, on_epoch=True, prog_bar=True, logger=True)
-        self.log('test_f1', f1_score, on_epoch=True, prog_bar=True, logger=True)
+        self.log('test_loss', loss, on_epoch=True, prog_bar=True, logger=True, batch_size=self.batch_size)
+        self.log('test_FER', 1-recognition_accuracy, on_epoch=True, prog_bar=True, logger=True, batch_size=self.batch_size)
+        self.log('test_PER', recognition_per, on_epoch=True, prog_bar=True, logger=True, batch_size=self.batch_size)
+        self.log('test_f1', f1_score, on_epoch=True, prog_bar=True, logger=True, batch_size=self.batch_size)
         for i in range(len(alignment_accuracies)):
-            self.log(f'test_alignment_accuracy{(i+1)*10}ms', alignment_accuracies[i], on_epoch=True, prog_bar=True, logger=True)
+            self.log(f'test_alignment_accuracy{(i+1)*10}ms', alignment_accuracies[i], on_epoch=True, prog_bar=True, logger=True, batch_size=self.batch_size)
 
     def calculate_metrics(self, batch, mode):
         (fbank, lengths), labels, sentences = batch
@@ -97,7 +110,7 @@ class PhonemeClassifier(pl.LightningModule):
         recognition_per = self.calculate_per(preds_folded, labels_folded, lengths)
         preds_flat = torch.cat(preds_folded)
         labels_flat = torch.cat(labels_folded)
-        recognition_accuracy = FM.accuracy(preds_flat, labels_flat)
+        recognition_accuracy = FM.accuracy(preds_flat, labels_flat, num_classes=self.num_classes_val, task="multiclass")
 
         if mode == 'val':
             return loss, recognition_accuracy, recognition_per
@@ -123,8 +136,8 @@ class PhonemeClassifier(pl.LightningModule):
         return self.optimizer
 
     def fold_probabilities(self, out, batch_size, lengths):
-        out_folded = [torch.zeros(lengths[i], Phoneme.folded_group_phoneme_count(), device=self.device) for i in range(batch_size)]
-        for i in range(Phoneme.folded_phoneme_count()):
+        out_folded = [torch.zeros(lengths[i], self.num_classes_val, device=self.device) for i in range(batch_size)]
+        for i in range(self.num_classes_train):
             symbol = Phoneme.folded_phoneme_list[i]
             symbol = Phoneme.symbol_to_folded_group.get(symbol, symbol)
             new_idx = Phoneme.folded_group_phoneme_list.index(symbol)
@@ -137,9 +150,10 @@ class PhonemeClassifier(pl.LightningModule):
         preds_folded = [torch.zeros(l, dtype=torch.int32, device=self.device) for l in lengths]
         for i in range(batch_size):
             probability_distance = lambda x, y: math.exp(-x[y]) - math.exp(-1)#1 - pow(x[y], 1/2)
-            _, _, _, path = dtw(out_folded[i], sentences[i], dist=probability_distance)
+            distance, paths = dtw.warping_paths(out_folded[i], sentences[i], inner_dist=probability_distance)
+            best_path = dtw.best_path(paths)
             for j in range(lengths[i]):
-                preds_folded[i][j] = sentences[i][path[1][j]]
+                preds_folded[i][j] = sentences[i][best_path[j][1]]
         return preds_folded
 
     def get_phoneme_boundary_indices(self, phoneme_lists, lengths, batch_size):

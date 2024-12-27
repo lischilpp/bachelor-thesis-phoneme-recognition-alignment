@@ -11,7 +11,7 @@ class DiskDataset(torch.utils.data.Dataset):
         self.n_records = len(self.record_paths)
 
     def __getitem__(self, index):
-        item = torch.load(self.record_paths[index])
+        item = torch.load(self.record_paths[index], weights_only=False)
         return item
 
     def __len__(self):

@@ -35,7 +35,8 @@ class DataModule(pl.LightningDataModule):
         self.loader_args = {'batch_size': self.batch_size,
                             'collate_fn': collate_fn,
                             'num_workers': 4,
-                            'pin_memory': True}
+                            'pin_memory': True,
+                            'persistent_workers': True}
 
     def train_dataloader(self):
         return DataLoader(dataset=self.train_ds,

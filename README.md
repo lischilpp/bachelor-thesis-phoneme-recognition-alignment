@@ -18,8 +18,10 @@ Apart from that we introduce the CyclicPlateauScheduler, a new learning rate sch
 The code for the initial CNN experiments can be found [here](https://github.com/lischilpp/bachelor-thesis-phoneme-recognition-alignment_cnn)
 
 ## Getting Started
-### Dependencies
-`pip install seaborn pandas matplotlib torch torchaudio spafe pytorch-lightning torchmetrics dtw-python`
+### Installation
+1. Install dependencies using `pip install torch torchaudio pytorch-lightning torchmetrics tensorboard pandas librosa soundfile matplotlib seaborn spafe dtaidistance levenshtein`
+2. Split the dataset into train, validation and test part by navigating to the src folder and executing `python dataset/divide_dataset.py`.
+3. Execute training and testing by running `python main.py`
 ### Configuration
 You can adjust several global variables in the [settings.py](https://github.com/lischilpp/bachelor-thesis-phoneme-recognition-alignment/blob/main/src/settings.py) file.
 Specific training parameters and the main code are located in [main.py](https://github.com/lischilpp/bachelor-thesis-phoneme-recognition-alignment/blob/main/src/main.py).

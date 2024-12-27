@@ -15,6 +15,9 @@ train_val_count = len(train_val_ds)
 val_count = int(train_val_count * VAL_PERCENTAGE)
 train_count = train_val_count - val_count
 
+print(f'train count: {train_count}')
+print(f'val count: {val_count}')
+
 train_ds, val_ds = random_split(train_val_ds, [train_count, val_count])
 test_ds = TimitDataset(test=True)
 

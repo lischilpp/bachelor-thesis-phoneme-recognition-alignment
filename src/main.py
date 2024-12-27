@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from dataset.disk_dataset import DiskDataset
 import torch
 
-num_epochs = 100
+num_epochs = 1
 batch_size = 16
 # initial_lr = 1e-4
 initial_lr = 5e-4
@@ -46,22 +46,21 @@ if __name__ == '__main__':
                               lr_patience,
                               lr_reduce_factor,
                               steps_per_epoch=len(DiskDataset(TRAIN_PATH)) / batch_size)
-    trainer = pl.Trainer(gpus=1,
+    trainer = pl.Trainer(accelerator='auto',
+                         devices='auto',
                          max_epochs=num_epochs,
-                         auto_lr_find=auto_lr_find,
-                         precision=16,
+                         precision='16-mixed',
                         #  num_sanity_val_steps=0,
                         #  log_every_n_steps=1,
                          callbacks=[ModelCheckpoint(monitor='val_loss'),
                                     EarlyStopping(monitor='val_loss', patience=3)])
-    # resume_from_checkpoint='lightning_logs/version_23/checkpoints/epoch=21-step=4839.ckpt')
     # resume_from_checkpoint='lightning_logs/version_56/checkpoints/epoch=97-step=21559.ckpt')
     
 
     if auto_lr_find:
         trainer.tune(model, dm)
     else:
-        trainer.fit(model, dm)
+        trainer.fit(model, dm, ckpt_path='lightning_logs/version_18/checkpoints/epoch=0-step=220.ckpt')
         trainer.test(datamodule=dm)
         confmat = model.confmat_metric.compute()
         show_confusion_matrix(confmat)

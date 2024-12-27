@@ -28,7 +28,7 @@ class TimitDataset(torch.utils.data.Dataset):
     def get_recording_paths(self):
         recording_paths = []
         train_test_str = "TEST" if self.test else "TRAIN"
-        for path in (TIMIT_PATH / train_test_str).rglob('*.WAV.wav'):
+        for path in (TIMIT_PATH / 'data' / train_test_str).rglob('*.WAV.wav'):
             path_entries = PurePath(path).parts
             speaker_id = path_entries[5]
             filename = path_entries[6]
