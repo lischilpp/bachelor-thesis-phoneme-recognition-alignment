@@ -5,7 +5,7 @@
     <img src="https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white">
   </p>
   <p>My bachelor thesis on Phoneme recognition and alignment on the TIMIT dataset</p>
-  <p><a href="https://isl.anthropomatik.kit.edu/downloads/BachelorarbeitSchlipp.pdf">Link to publication</a></p>
+  <p><a href="https://isl.iar.kit.edu/downloads/BachelorarbeitSchlipp.pdf">Link to publication</a></p>
 </div>
 
 ## Abstract
