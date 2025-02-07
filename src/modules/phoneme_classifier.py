@@ -4,7 +4,7 @@ from torchmetrics import ConfusionMatrix, F1Score
 import torchmetrics.functional as FM
 import pytorch_lightning as pl
 from Levenshtein import distance as levenshtein_distance
-from dtaidistance import dtw
+from dtw import *
 import matplotlib.pyplot as plt
 import math
 
@@ -150,10 +150,13 @@ class PhonemeClassifier(pl.LightningModule):
         preds_folded = [torch.zeros(l, dtype=torch.int32, device=self.device) for l in lengths]
         for i in range(batch_size):
             probability_distance = lambda x, y: math.exp(-x[y]) - math.exp(-1)#1 - pow(x[y], 1/2)
-            distance, paths = dtw.warping_paths(out_folded[i], sentences[i], inner_dist=probability_distance)
-            best_path = dtw.best_path(paths)
+            print('asdf')
+            print(len(sentences[i]))
+            print(out_folded[i].cpu().shape)
+            print(torch.tensor(sentences[i]).shape)
+            _, _, _, path = dtw(out_folded[i].cpu(), sentences[i], dist_method=probability_distance)
             for j in range(lengths[i]):
-                preds_folded[i][j] = sentences[i][best_path[j][1]]
+                preds_folded[i][j] = sentences[i][path[1][j]]
         return preds_folded
 
     def get_phoneme_boundary_indices(self, phoneme_lists, lengths, batch_size):

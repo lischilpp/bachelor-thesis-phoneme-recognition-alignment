@@ -19,7 +19,7 @@ The code for the initial CNN experiments can be found [here](https://github.com/
 
 ## Getting Started
 ### Installation
-1. Install dependencies using `pip install torch torchaudio pytorch-lightning torchmetrics tensorboard pandas librosa soundfile matplotlib seaborn spafe dtaidistance levenshtein`
+1. Install dependencies using `pip install torch torchaudio pytorch-lightning torchmetrics tensorboard pandas librosa soundfile matplotlib seaborn spafe dtw-python levenshtein`
 2. Split the dataset into train, validation and test part by navigating to the src folder and executing `python dataset/divide_dataset.py`.
 3. Execute training and testing by running `python main.py`
 ### Configuration
@@ -27,7 +27,11 @@ You can adjust several global variables in the [settings.py](https://github.com/
 Specific training parameters and the main code are located in [main.py](https://github.com/lischilpp/bachelor-thesis-phoneme-recognition-alignment/blob/main/src/main.py).
 
 ### Execution
-To run the training and testing process, execute [main.py](https://github.com/lischilpp/bachelor-thesis-phoneme-recognition-alignment/blob/main/src/main.py). Detailed information about the current training is displayed in the terminal and logged in the Lightning logs directory, which can be viewed using TensorBoard for further analysis.
+To run the training and testing process, execute `python main.py` from the src/ directory.
+
+### Analysis
+Detailed information about the current training is displayed in the terminal and logged in the Lightning logs directory, which can be viewed using TensorBoard for further analysis.
+To open the logs with TensorBoard run 
 
 ## Main contributions of this work
 ### CyclicPlateau scheduler

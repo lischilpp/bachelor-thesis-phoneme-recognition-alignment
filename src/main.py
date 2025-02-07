@@ -54,13 +54,12 @@ if __name__ == '__main__':
                         #  log_every_n_steps=1,
                          callbacks=[ModelCheckpoint(monitor='val_loss'),
                                     EarlyStopping(monitor='val_loss', patience=3)])
-    # resume_from_checkpoint='lightning_logs/version_56/checkpoints/epoch=97-step=21559.ckpt')
     
 
     if auto_lr_find:
         trainer.tune(model, dm)
     else:
-        trainer.fit(model, dm, ckpt_path='lightning_logs/version_18/checkpoints/epoch=0-step=220.ckpt')
+        trainer.fit(model, dm) # ckpt_path='lightning_logs/version_18/checkpoints/epoch=0-step=220.ckpt')
         trainer.test(datamodule=dm)
         confmat = model.confmat_metric.compute()
         show_confusion_matrix(confmat)

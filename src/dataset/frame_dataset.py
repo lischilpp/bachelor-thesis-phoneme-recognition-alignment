@@ -18,7 +18,7 @@ class FrameDataset(torch.utils.data.Dataset):
 
     def get_frame_labels_and_sentence(self, phonemes, n_samples):
         labels = []
-        sentence = [Phoneme.symbol_to_folded_group_index(phonemes[0].symbol)]
+        sentence = self.get_phoneme_sentence_from_list(phonemes)
         pn_idx = 0
         label_idx = 0
         x = 0
@@ -33,7 +33,10 @@ class FrameDataset(torch.utils.data.Dataset):
                 pn = phonemes[pn_idx]
                 pn_idx_updated = True
             if pn_idx_updated:
-                sentence.append(Phoneme.symbol_to_folded_group_index(pn.symbol))
+                s = Phoneme.folded_phoneme_list[pn.symbol_idx]
+                s = Phoneme.symbol_to_folded_group.get(s, s)
+                idx = Phoneme.folded_group_phoneme_list.index(s)
+                sentence.append(idx)
             labels.append(Phoneme.folded_phoneme_list.index(pn.symbol))
             label_idx += 1
             x += SAMPLES_PER_STRIDE
@@ -61,6 +64,15 @@ class FrameDataset(torch.utils.data.Dataset):
                  num_ceps=N_CEPS,
                  lifter=0,
                  normalize=True)).float()
+    
+    def get_phoneme_sentence_from_list(self, phonemes):
+        sentence = torch.zeros(len(phonemes), dtype=torch.int32)
+        for i, pn in enumerate(phonemes):
+            s = Phoneme.folded_phoneme_list[pn.symbol_idx]
+            s = Phoneme.symbol_to_folded_group.get(s, s)
+            idx = Phoneme.folded_group_phoneme_list.index(s)
+            sentence[i] = idx
+        return sentence
 
     def __getitem__(self, i):
         record = self.root_ds[i]
